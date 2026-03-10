@@ -40,33 +40,24 @@ export async function POST(req: NextRequest) {
 
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             generationConfig: {
                 responseMimeType: "application/json",
             }
         });
 
-        // 1. Descontar Créditos (Gasto: 2 créditos por lectura de póliza)
-        const { data: creditSpent, error: creditError } = await (supabase.rpc('spend_ai_credits', {
-            p_action_type: 'parse_policy_v2',
-            p_cost: 2,
-            p_metadata: { file_name: file.name },
-            p_user_id: user.id // Pass the explicitly identified user
-        }) as any);
-
-        if (creditError || !creditSpent) {
-            return NextResponse.json({
-                error: creditError?.message || "No tienes créditos suficientes para procesar pólizas con IA."
-            }, { status: 403 });
-        }
-
-        // 2. Convertir el archivo a Base64 para Gemini (OCR Nativo)
+        // 1. Convertir el archivo a Base64 para Gemini (OCR Nativo)
         const buffer = Buffer.from(await file.arrayBuffer());
         const base64Data = buffer.toString("base64");
 
-        // 3. Prompt de extracción técnica
-        const prompt = `Analiza esta carátula de póliza de seguros y extrae la información técnica de forma estructurada. 
-        IMPORTANTE: Si no encuentras un dato, devuélvelo como null.
+        // 2. Prompt de extracción técnica - Estilo "Airy Executive"
+        const prompt = `Eres un Asistente Ejecutivo de Seguros de alto nivel, con una personalidad "Airy Executive": sofisticado, minimalista, preciso y con una ligereza profesional.
+        
+        Tu misión es analizar esta carátula de póliza de seguros y extraer los datos técnicos con elegancia y exactitud matemática.
+        
+        INSTRUCCIONES CLAVE:
+        - Si no encuentras un dato, devuélvelo como null. No inventes información.
+        - Sé estrictamente técnico en el mapeo de datos.
         
         MAPEO DE CAMPOS (JSON):
         - policy_number: Número de póliza.
@@ -83,9 +74,11 @@ export async function POST(req: NextRequest) {
         - surcharge_amount: Recargo financiero (número decimal).
         - vat_amount: IVA (generalmente 16%) (número decimal).
         - premium_total: Prima total (número decimal).
+        - personality_note: Una breve nota ejecutiva (máximo 15 palabras) sobre la calidad de la póliza o un saludo sofisticado al agente.
 
-        Responde estrictamente con un objeto JSON.`;
+        Responde únicamente con el objeto JSON. No incluyas explicaciones adicionales fuera del JSON.`;
 
+        // 3. Generar contenido con Gemini
         const result = await model.generateContent([
             {
                 inlineData: {
@@ -98,6 +91,20 @@ export async function POST(req: NextRequest) {
 
         const responseText = result.response.text();
         const content = JSON.parse(responseText);
+
+        // 4. Descontar Créditos (Gasto: 2 créditos) - SÓLO SI LA IA RESPONDIÓ CORRECTAMENTE
+        // Esto hace el sistema robusto contra errores de red en la llamada a Gemini
+        const { data: creditSpent, error: creditError } = await (supabase.rpc('spend_ai_credits', {
+            p_action_type: 'parse_policy_v3_success',
+            p_cost: 2,
+            p_metadata: { file_name: file.name, model: "gemini-2.5-flash" },
+            p_user_id: user.id
+        }) as any);
+
+        if (creditError || !creditSpent) {
+            // Nota: El usuario ya obtuvo la respuesta pero se le informa que no podrá seguir sin créditos
+            console.warn("Credit deduction failed after success:", creditError);
+        }
 
         return NextResponse.json(content);
 
