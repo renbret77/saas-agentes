@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
         - insurer_name: Nombre de la aseguradora (ej. GNP, Chubb, Monterrey).
         - client_name: Nombre completo del asegurado o contratante.
         - rfc: El RFC del asegurado (ej. VIDV720407N2A).
+        - client_phone: Teléfono de contacto que aparezca en la póliza.
+        - client_email: Correo electrónico que aparezca en la póliza.
         - agent_name: Nombre del agente o promotoría.
         - agent_code: Número, clave o clave interna de agente.
         - asset_description: Descripción detallada del bien asegurado (ej. Nissan Altima 2010, Local Comercial #4, etc).

@@ -16,6 +16,8 @@ export default function NewPolicyPage() {
     const [policyFileUrl, setPolicyFileUrl] = useState<string | null>(null)
     const [parsedClientName, setParsedClientName] = useState<string | null>(null)
     const [parsedClientRFC, setParsedClientRFC] = useState<string | null>(null)
+    const [parsedClientPhone, setParsedClientPhone] = useState<string | null>(null)
+    const [parsedClientEmail, setParsedClientEmail] = useState<string | null>(null)
     const [parsedAgentCode, setParsedAgentCode] = useState<string | null>(null)
     const [parsedAgentName, setParsedAgentName] = useState<string | null>(null)
     const [parsedFirstInstallment, setParsedFirstInstallment] = useState<number | null>(null)
@@ -25,6 +27,13 @@ export default function NewPolicyPage() {
         broker_name: '',
         type: 'direct' as 'direct' | 'broker'
     })
+
+    // Phase 17: Smart Client Matching
+    const [clientCandidates, setClientCandidates] = useState<any[]>([])
+    const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+    const [showClientSync, setShowClientSync] = useState(false)
+    const [clientToSync, setClientToSync] = useState<any>(null)
+
 
     // Catalogos
     const [clients, setClients] = useState<any[]>([])
@@ -140,6 +149,14 @@ export default function NewPolicyPage() {
         const uploadFormData = new FormData()
         uploadFormData.append('file', file)
 
+        // Reset candidates
+        setClientCandidates([])
+        setParsedClientName(null)
+        setParsedClientRFC(null)
+        setParsedClientPhone(null)
+        setParsedClientEmail(null)
+
+
         try {
             // 1. OCR Parsing (v75: Pass Auth Token)
             const { data: { session } } = await supabase.auth.getSession()
@@ -182,16 +199,35 @@ export default function NewPolicyPage() {
             let updatedAgentCodeId = formData.agent_code_id;
             let finalCodes: any[] = agentCodes;
 
-            // 3. Intentar empatar cliente por nombre (v72)
+            // 3. Smart Matching: Fuzzy search (Phase 17)
             if (data.client_name) {
                 setParsedClientName(data.client_name)
-                const foundClient = clients.find(c => {
-                    const fullName = `${c.first_name} ${c.last_name}`.toLowerCase()
-                    return fullName.includes(data.client_name.toLowerCase()) ||
-                        data.client_name.toLowerCase().includes(fullName)
-                })
-                if (foundClient) {
-                    updatedClientId = foundClient.id
+
+                const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const aiNameNorm = normalize(data.client_name);
+
+                const candidates = clients.map(c => {
+                    const fullName = normalize(`${c.first_name} ${c.last_name}`);
+                    // Exact match or partial match score
+                    let score = 0;
+                    if (fullName === aiNameNorm) score = 100;
+                    else if (aiNameNorm.includes(fullName) || fullName.includes(aiNameNorm)) score = 80;
+                    // Simple shared words check
+                    const aiWords = aiNameNorm.split(/\s+/);
+                    const clientWords = fullName.split(/\s+/);
+                    const shared = aiWords.filter(w => clientWords.includes(w));
+                    if (shared.length > 0) {
+                        const wordScore = (shared.length / Math.max(aiWords.length, clientWords.length)) * 100;
+                        score = Math.max(score, wordScore);
+                    }
+
+                    return { ...c, matchScore: score };
+                }).filter(c => c.matchScore > 30).sort((a, b) => b.matchScore - a.matchScore);
+
+                setClientCandidates(candidates);
+
+                if (candidates.length > 0 && candidates[0].matchScore >= 95) {
+                    updatedClientId = candidates[0].id;
                 }
             }
 
@@ -258,6 +294,8 @@ export default function NewPolicyPage() {
             }))
 
             if (data.rfc) setParsedClientRFC(data.rfc)
+            if (data.client_phone) setParsedClientPhone(data.client_phone)
+            if (data.client_email) setParsedClientEmail(data.client_email)
             if (data.first_installment_extract) setParsedFirstInstallment(parseNum(data.first_installment_extract))
 
 
@@ -642,18 +680,92 @@ export default function NewPolicyPage() {
                                         <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
                                     ))}
                                 </select>
-                                {parsedClientName && !formData.client_id && (
-                                    <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                                        <span className="text-[10px] font-bold text-amber-700 uppercase">IA Sugiere: "{parsedClientName}" (Sin coincidencia exacta)</span>
+
+                                {/* Fase 17: Sugerencias de Clientes Inteligent */}
+                                {parsedClientName && clientCandidates.length > 0 && !formData.client_id && (
+                                    <div className="mt-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                                            <span className="text-xs font-bold text-indigo-900 uppercase">Candidatos Detectados ({clientCandidates.length})</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {clientCandidates.slice(0, 3).map(candidate => (
+                                                <button
+                                                    key={candidate.id}
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, client_id: candidate.id }))}
+                                                    className="flex items-center justify-between p-3 bg-white border border-indigo-100 rounded-xl hover:border-indigo-400 hover:shadow-md transition-all text-left"
+                                                >
+                                                    <div>
+                                                        <p className="font-bold text-slate-900">{candidate.first_name} {candidate.last_name}</p>
+                                                        <p className="text-[10px] text-slate-500 font-medium">COINCIDENCIA: {Math.round(candidate.matchScore)}%</p>
+                                                    </div>
+                                                    <span className="text-[10px] bg-indigo-600 text-white px-2 py-1 rounded-lg font-bold">SELECCIONAR</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
-                                {parsedClientName && formData.client_id && (
-                                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-2">
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                        <span className="text-[10px] font-bold text-emerald-700 uppercase">IA Empató con éxito: "{parsedClientName}"</span>
+
+                                {parsedClientName && clientCandidates.length === 0 && !formData.client_id && (
+                                    <div className="mt-3 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                                                <User className="w-5 h-5 text-amber-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-amber-700 uppercase">Nuevo Cliente</p>
+                                                <p className="font-bold text-slate-900">{parsedClientName}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="text-[10px] bg-amber-600 text-white px-3 py-2 rounded-xl font-bold hover:bg-amber-700 transition-all uppercase tracking-widest shadow-sm"
+                                            onClick={async () => {
+                                                // Quick Create Logic
+                                                const [first, ...rest] = (parsedClientName || '').split(' ');
+                                                const { data: newClient, error } = await supabase.from('clients').insert({
+                                                    user_id: (await supabase.auth.getUser()).data.user?.id,
+                                                    first_name: first,
+                                                    last_name: rest.join(' '),
+                                                    status: 'active',
+                                                    rfc: parsedClientRFC,
+                                                    phone: parsedClientPhone,
+                                                    email: parsedClientEmail
+                                                }).select().single();
+
+                                                if (newClient) {
+                                                    setClients(prev => [...prev, newClient]);
+                                                    setFormData(prev => ({ ...prev, client_id: newClient.id }));
+                                                }
+                                            }}
+                                        >
+                                            Registrar como Nuevo
+                                        </button>
                                     </div>
                                 )}
+
+                                {formData.client_id && (parsedClientRFC || parsedClientPhone || parsedClientEmail) && (
+                                    <div className="mt-2 text-right space-y-1">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase">Sincronización Inteligente</p>
+                                        <button
+                                            type="button"
+                                            className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center justify-end gap-1 ml-auto"
+                                            onClick={async () => {
+                                                const updates: any = {};
+                                                if (parsedClientRFC) updates.rfc = parsedClientRFC;
+                                                if (parsedClientPhone) updates.phone = parsedClientPhone;
+                                                if (parsedClientEmail) updates.email = parsedClientEmail;
+
+                                                const { error } = await supabase.from('clients').update(updates).eq('id', formData.client_id);
+                                                if (!error) alert('Datos sincronizados con éxito al cliente seleccionado.');
+                                            }}
+                                        >
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            SINCRONIZAR DATOS DEL PDF AL CLIENTE
+                                        </button>
+                                    </div>
+                                )}
+
                             </div>
 
                             <div className="space-y-2">
