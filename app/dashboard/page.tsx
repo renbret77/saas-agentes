@@ -9,6 +9,7 @@ import CollectionTimeline from "@/components/dashboard/overview/collection-timel
 import OpportunityWidget from "@/components/dashboard/OpportunityWidget"
 import { OnboardingTour } from "@/components/dashboard/onboarding-tour"
 import CapatazStatusWidget from "@/components/dashboard/CapatazStatusWidget"
+import CriticalTasksWidget from "@/components/dashboard/CriticalTasksWidget"
 import Link from "next/link"
 
 export default function DashboardPage() {
@@ -154,6 +155,11 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Tareas Críticas (SICAS Killer) */}
+                    <div className="mb-8">
+                        <CriticalTasksWidget />
                     </div>
 
                     {/* Alertas y Tendencias */}

@@ -109,3 +109,32 @@ export const getCollectionMessage = (
 
     return header + body + graceInfo + paymentInfo + finalSection
 }
+
+/**
+ * Genera el copy de WhatsApp para Renovaciones (v16)
+ */
+export const getRenewalMessage = (
+    clientName: string,
+    policyType: string,
+    insurerName: string,
+    policyNumber: string,
+    endDate: string,
+    estimatedPremium?: number,
+    currencySymbol: string = '$',
+) => {
+    return `🕒 *AVISO DE RENOVACIÓN* 🕒
+
+Hola *${clientName}*, te saludo con gusto. 👋
+
+Te informo que tu póliza está próxima a vencer y es momento de asegurar la continuidad de tu protección:
+
+🏢 *Aseguradora:* ${insurerName}
+🛡️ *Ramo:* ${policyType}
+🔢 *Póliza:* \`${policyNumber}\`
+📅 *Vence el:* *${formatDate(endDate)}*
+
+${estimatedPremium ? `💵 *Prima estimada:* ${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}\n` : ''}
+¿Gustas que procedamos con la renovación automática o prefieres que revisemos otras opciones de costo/cobertura? 
+
+Quedo atento para apoyarte. 😊`
+}

@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
+export const dynamic = 'force-dynamic'
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
-// Use require for pdf-parse to avoid ESM/TypeScript default import issues in Next.js
-const pdf = require("pdf-parse")
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Avoid top-level require for pdf-parse to prevent build issues
+// const pdf = require("pdf-parse")
 
 export async function POST(req: NextRequest) {
     try {
+        const pdf = require("pdf-parse")
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const openaiApiKey = process.env.OPENAI_API_KEY
+
+        if (!supabaseUrl || !supabaseKey || !openaiApiKey) {
+            console.error("Missing environment variables for quote parsing")
+            return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+        }
+
         const supabase = createClient(supabaseUrl, supabaseKey)
+        const openai = new OpenAI({ apiKey: openaiApiKey })
         const formData = await req.formData()
         const files = formData.getAll("files") as File[]
 
