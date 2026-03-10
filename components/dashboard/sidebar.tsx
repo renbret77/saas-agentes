@@ -165,7 +165,7 @@ export function Sidebar() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
                             </span>
-                            BUILD 05-03-2026 01:00 AM
+                            BUILD {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ? 'VERCEL' : new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </span>
                     </div>
                 </div>
