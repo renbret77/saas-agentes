@@ -7,8 +7,7 @@ import {
     Bot, Star, Sparkles, AlertCircle, ArrowRight
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-// Assuming we'll create a checkout action later
-// import { createCheckoutSession } from "./actions"
+import { createCheckoutSession } from "./actions"
 
 export default function BillingPage() {
     const [loading, setLoading] = useState(true)
@@ -46,9 +45,12 @@ export default function BillingPage() {
     }, [])
 
     const handleCheckout = async (priceId: string, type: 'subscription' | 'credits' | 'addon') => {
-        alert("Integración con Stripe en progreso. PriceID: " + priceId)
-        // const res = await createCheckoutSession(priceId, type)
-        // if (res.url) window.location.href = res.url
+        const res = await createCheckoutSession(priceId, type)
+        if (res.url) {
+            window.location.href = res.url
+        } else if (res.error) {
+            alert(res.error)
+        }
     }
 
     if (loading) {
