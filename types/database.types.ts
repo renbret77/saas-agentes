@@ -9,26 +9,55 @@ export type Json =
 export interface Database {
     public: {
         Tables: {
+            assistant_permissions: {
+                Row: {
+                    assistant_id: string
+                    can_manage_clients: boolean
+                    can_view_financials: boolean
+                    can_manage_claims: boolean
+                    can_manage_quotes: boolean
+                    updated_at: string
+                }
+                Insert: {
+                    assistant_id: string
+                    can_manage_clients?: boolean
+                    can_view_financials?: boolean
+                    can_manage_claims?: boolean
+                    can_manage_quotes?: boolean
+                    updated_at?: string
+                }
+                Update: {
+                    assistant_id?: string
+                    can_manage_clients?: boolean
+                    can_view_financials?: boolean
+                    can_manage_claims?: boolean
+                    can_manage_quotes?: boolean
+                    updated_at?: string
+                }
+            }
             profiles: {
                 Row: {
                     id: string
                     full_name: string | null
                     avatar_url: string | null
-                    role: 'admin' | 'agent'
+                    role: 'admin' | 'agent' | 'assistant'
+                    parent_id: string | null
                     created_at: string
                 }
                 Insert: {
                     id: string
                     full_name?: string | null
                     avatar_url?: string | null
-                    role?: 'admin' | 'agent'
+                    role?: 'admin' | 'agent' | 'assistant'
+                    parent_id?: string | null
                     created_at?: string
                 }
                 Update: {
                     id?: string
                     full_name?: string | null
                     avatar_url?: string | null
-                    role?: 'admin' | 'agent'
+                    role?: 'admin' | 'agent' | 'assistant'
+                    parent_id?: string | null
                     created_at?: string
                 }
             }

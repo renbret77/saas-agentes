@@ -49,12 +49,14 @@ export function Sidebar() {
     const pathname = usePathname()
     const [isMobileOpen, setIsMobileOpen] = useState(false)
     const [credits, setCredits] = useState({ total: 0, used: 0 })
+    const [userRole, setUserRole] = useState<string>("agent")
+    const [permissions, setPermissions] = useState<any>(null)
 
     useEffect(() => {
-        fetchCredits()
+        fetchUserData()
     }, [])
 
-    const fetchCredits = async () => {
+    const fetchUserData = async () => {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
@@ -70,7 +72,34 @@ export function Sidebar() {
                 used: (data as any).ai_credits_used || 0
             })
         }
+
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (profile) {
+            setUserRole((profile as any).role)
+            if ((profile as any).role === 'assistant') {
+                const { data: perms } = await supabase.from('assistant_permissions').select('*').eq('assistant_id', user.id).single()
+                if (perms) {
+                    setPermissions(perms as any)
+                }
+            }
+        }
     }
+
+    const filteredMenuItems = menuItems.filter(item => {
+        if (userRole !== 'assistant') return true;
+        if (item.href === '/dashboard/admin') return false;
+
+        const p = permissions || {};
+        if (item.href === '/dashboard/billing' && !p.can_view_financials) return false;
+        if (item.href === '/dashboard/reports' && !p.can_view_financials) return false;
+        if (item.href === '/dashboard/clients' && !p.can_manage_clients) return false;
+        if (item.href === '/dashboard/cross-sell' && !p.can_manage_clients) return false;
+        if (item.href === '/dashboard/loyalty' && !p.can_manage_clients) return false;
+        if (item.href === '/dashboard/claims' && !p.can_manage_claims) return false;
+        if (item.href === '/dashboard/quotes' && !p.can_manage_quotes) return false;
+
+        return true;
+    })
 
     const creditsRemaining = credits.total - credits.used
 
@@ -112,7 +141,7 @@ export function Sidebar() {
 
                 {/* Navigation */}
                 <nav className="flex-1 py-6 px-3 space-y-1">
-                    {menuItems.map((item) => {
+                    {filteredMenuItems.map((item) => {
                         const isActive = pathname === item.href
                         return (
                             <Link
