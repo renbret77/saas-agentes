@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import {
     Terminal,
@@ -16,17 +16,37 @@ import {
 
 export default function AdminPage() {
     const [isExecuting, setIsExecuting] = useState(false)
+    const [migrations, setMigrations] = useState<string[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        fetchMigrations()
+    }, [])
+
+    const fetchMigrations = async () => {
+        try {
+            const res = await fetch('/api/admin/migrations')
+            const data = await res.json()
+            if (data.migrations) setMigrations(data.migrations)
+        } catch (error) {
+            console.error("Error fetching migrations:", error)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const adminSections = [
         {
             title: "Operaciones de Base de Datos",
             icon: Database,
             description: "Ejecución de migraciones y limpieza de datos",
-            actions: [
-                { name: "Verificar Integridad", lastRun: "09/03/2026", status: "ok" },
-                { name: "Optimizar Índices", lastRun: "07/03/2026", status: "ok" },
-                { name: "Ejecutar Migración SQL", lastRun: "N/A", status: "idle" },
-            ]
+            actions: loading
+                ? [{ name: "Cargando migraciones...", lastRun: "-", status: "idle" }]
+                : migrations.slice(-3).reverse().map(m => ({
+                    name: m.replace('.sql', '').replace(/_/g, ' '),
+                    lastRun: "Pendiente",
+                    status: "idle"
+                }))
         },
         {
             title: "Inteligencia de Bots",
