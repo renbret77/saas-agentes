@@ -165,6 +165,24 @@ export function Sidebar() {
                             </Link>
                         )
                     })}
+
+                    {userRole === 'superadmin' && (
+                        <div className="pt-4 mt-6 border-t border-slate-200/50">
+                            <p className="px-3 mb-2 text-[10px] font-black tracking-widest text-indigo-400 uppercase">Propietario</p>
+                            <Link
+                                href="/dashboard/superadmin"
+                                className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group
+                                    ${pathname.startsWith('/dashboard/superadmin') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 font-medium'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-100 text-indigo-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></svg>
+                                    </div>
+                                    {!isMobileOpen && <span className="text-sm">Súper Admin</span>}
+                                </div>
+                            </Link>
+                        </div>
+                    )}
                 </nav>
 
                 {/* Referral Promo Banner */}
