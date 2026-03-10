@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { UpsellModal } from "./upsell-modal"
 
 const menuItems = [
     { icon: LayoutDashboard, label: "Resumen", href: "/dashboard" },
@@ -50,7 +51,18 @@ export function Sidebar() {
     const [isMobileOpen, setIsMobileOpen] = useState(false)
     const [credits, setCredits] = useState({ total: 0, used: 0 })
     const [userRole, setUserRole] = useState<string>("agent")
+    const [licenseType, setLicenseType] = useState<string>("free")
     const [permissions, setPermissions] = useState<any>(null)
+
+    const [upsellModalOpen, setUpsellModalOpen] = useState(false)
+    const [upsellRoute, setUpsellRoute] = useState("")
+
+    const PRO_FEATURES = [
+        "/dashboard/cross-sell",
+        "/dashboard/loyalty",
+        "/dashboard/reports",
+        "/dashboard/claims"
+    ]
 
     useEffect(() => {
         fetchUserData()
@@ -73,9 +85,18 @@ export function Sidebar() {
             })
         }
 
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select(`
+                role,
+                agencies ( license_type )
+            `)
+            .eq('id', user.id)
+            .single()
+
         if (profile) {
             setUserRole((profile as any).role)
+            setLicenseType((profile as any).agencies?.license_type || 'free')
             if ((profile as any).role === 'assistant') {
                 const { data: perms } = await supabase.from('assistant_permissions').select('*').eq('assistant_id', user.id).single()
                 if (perms) {
@@ -100,6 +121,15 @@ export function Sidebar() {
 
         return true;
     })
+
+    const handleMenuClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+        // Intercept Pro Features for Free users
+        if (licenseType === 'free' && PRO_FEATURES.includes(href)) {
+            e.preventDefault() // Detener navegación
+            setUpsellRoute(href)
+            setUpsellModalOpen(true)
+        }
+    }
 
     const creditsRemaining = credits.total - credits.used
 
@@ -143,12 +173,16 @@ export function Sidebar() {
                 <nav className="flex-1 py-6 px-3 space-y-1">
                     {filteredMenuItems.map((item) => {
                         const isActive = pathname === item.href
+                        const isProFeature = PRO_FEATURES.includes(item.href)
+                        const showProLock = licenseType === 'free' && isProFeature
+
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
+                                onClick={(e) => handleMenuClick(e, item.href)}
                                 className={cn(
-                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group",
+                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative",
                                     isActive
                                         ? "bg-emerald-600/10 text-emerald-400 font-medium shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                                         : "text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -156,7 +190,14 @@ export function Sidebar() {
                             >
                                 <item.icon className={cn("h-5 w-5", isActive ? "text-emerald-400" : "text-slate-500 group-hover:text-white")} />
                                 <span>{item.label}</span>
-                                {isActive && (
+
+                                {showProLock && (
+                                    <div className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-[9px] font-black text-amber-500 tracking-wider">
+                                        <Sparkles className="w-2.5 h-2.5" /> PRO
+                                    </div>
+                                )}
+
+                                {isActive && !showProLock && (
                                     <motion.div
                                         layoutId="active-pill"
                                         className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400"
@@ -254,6 +295,12 @@ export function Sidebar() {
                     onClick={() => setIsMobileOpen(false)}
                 />
             )}
+            {/* Freemium Upsell Modal */}
+            <UpsellModal
+                isOpen={upsellModalOpen}
+                onClose={() => setUpsellModalOpen(false)}
+                featureRoute={upsellRoute}
+            />
         </>
     )
 }
