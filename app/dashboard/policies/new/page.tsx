@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { calculateInstallments } from "@/lib/installment-engine"
+import { getInsurerConfig } from "@/lib/insurers-config"
 
 export default function NewPolicyPage() {
     const router = useRouter()
@@ -12,6 +14,15 @@ export default function NewPolicyPage() {
     const [loading, setLoading] = useState(false)
     const [isParsingPolicy, setIsParsingPolicy] = useState(false)
     const [policyFileUrl, setPolicyFileUrl] = useState<string | null>(null)
+    const [parsedClientName, setParsedClientName] = useState<string | null>(null)
+    const [parsedAgentCode, setParsedAgentCode] = useState<string | null>(null)
+    const [parsedAgentName, setParsedAgentName] = useState<string | null>(null)
+    const [showAgentRegistration, setShowAgentRegistration] = useState(false)
+    const [newAgentData, setNewAgentData] = useState({
+        code: '',
+        broker_name: '',
+        type: 'direct' as 'direct' | 'broker'
+    })
 
     // Catalogos
     const [clients, setClients] = useState<any[]>([])
@@ -174,7 +185,20 @@ export default function NewPolicyPage() {
                 if (data.vat_amount) updated.vat_amount = data.vat_amount.toString()
                 if (data.premium_total) updated.premium_total = data.premium_total.toString()
 
-                // Intentar empatar aseguradora si viene en el texto
+                // 3. Intentar empatar cliente por nombre (v72)
+                if (data.client_name) {
+                    setParsedClientName(data.client_name)
+                    const foundClient = clients.find(c => {
+                        const fullName = `${c.first_name} ${c.last_name}`.toLowerCase()
+                        return fullName.includes(data.client_name.toLowerCase()) ||
+                            data.client_name.toLowerCase().includes(fullName)
+                    })
+                    if (foundClient) {
+                        updated.client_id = foundClient.id
+                    }
+                }
+
+                // 4. Intentar empatar aseguradora si viene en el texto
                 if (data.insurer_name && insurers.length > 0) {
                     const foundInsurer = insurers.find(i =>
                         i.name.toLowerCase().includes(data.insurer_name.toLowerCase()) ||
@@ -183,7 +207,34 @@ export default function NewPolicyPage() {
                     )
                     if (foundInsurer) {
                         updated.insurer_id = foundInsurer.id
-                        fetchAgentCodes(foundInsurer.id)
+                        // Cargar claves de la aseguradora encontrada
+                        const { data: codes } = await supabase
+                            .from('agent_codes')
+                            .select('id, code, description')
+                            .eq('insurer_id', foundInsurer.id)
+
+                        setAgentCodes(codes || [])
+
+                        // 5. Intentar empatar clave de agente (v73)
+                        if (data.agent_code) {
+                            setParsedAgentCode(data.agent_code)
+                            setParsedAgentName(data.agent_name || null)
+                            const foundCode = (codes || []).find(c =>
+                                c.code.toLowerCase().includes(data.agent_code.toLowerCase()) ||
+                                data.agent_code.toLowerCase().includes(c.code.toLowerCase())
+                            )
+                            if (foundCode) {
+                                updated.agent_code_id = foundCode.id
+                            } else {
+                                // No existe, preparar para pre-captura
+                                setNewAgentData({
+                                    code: data.agent_code,
+                                    broker_name: '',
+                                    type: 'direct'
+                                })
+                                setShowAgentRegistration(true)
+                            }
+                        }
                     }
                 }
 
@@ -191,10 +242,14 @@ export default function NewPolicyPage() {
             })
 
             // Notificamos al usuario del éxito
-            alert('¡Póliza analizada y carátula cargada con éxito! Por favor verifica los datos en cada paso.')
+            if (data.client_name && !formData.client_id) {
+                alert(`¡Póliza analizada! IA detectó al cliente: "${data.client_name}". Valida si coincide con tu base de datos o crea uno nuevo.`)
+            } else {
+                alert('¡Póliza analizada y carátula cargada con éxito! Revisa los detalles extraídos.')
+            }
 
-            // Si encontró los datos básicos, saltamos al paso 2
-            if (data.policy_number) setStep(2)
+            // Saltamos al paso 2 para que vea los detalles técnicos extraídos
+            setStep(2)
 
         } catch (error: any) {
             console.error('OCR Error:', error)
@@ -337,40 +392,19 @@ export default function NewPolicyPage() {
     }, [formData.payment_method, formData.insurer_id])
 
     const generateInstallments = (count: number) => {
-        const netTotal = parseNum(formData.premium_net) || 0
-        const feeTotal = parseNum(formData.policy_fee) || 0
-        const surchPct = parseNum(formData.surcharge_percentage) || 0
-        const taxPct = parseNum(formData.tax_percentage) || 16
-
-        const surchTotal = parseNum(formData.surcharge_amount) || 0
-        const vatTotal = parseNum(formData.vat_amount) || 0
-
-        const newInstallments = []
-        const startDate = new Date(formData.start_date || new Date())
-
-        for (let i = 1; i <= count; i++) {
-            // Dividir montos (simétrico por defecto)
-            const net = netTotal / count
-            const surch = surchTotal / count
-            const fee = i === 1 ? feeTotal : 0 // El derecho suele cobrarse en el 1er recibo
-            const vat = vatTotal / count
-            const total = net + surch + fee + vat
-
-            // Calcular fechas (cada 12/count meses)
-            const dueDate = new Date(startDate)
-            dueDate.setMonth(startDate.getMonth() + (i - 1) * (12 / count))
-
-            newInstallments.push({
-                installment_number: i,
-                due_date: dueDate.toISOString().split('T')[0],
-                premium_net: net.toFixed(2),
-                policy_fee: fee.toFixed(2),
-                surcharges: surch.toFixed(2),
-                vat_amount: vat.toFixed(2),
-                total_amount: total.toFixed(2),
-                status: 'Pendiente'
-            })
+        const input = {
+            premiumNet: parseNum(formData.premium_net),
+            policyFee: parseNum(formData.policy_fee),
+            surchargeAmount: parseNum(formData.surcharge_amount),
+            vatAmount: parseNum(formData.vat_amount),
+            discountAmount: parseNum(formData.discount_amount),
+            extraPremium: parseNum(formData.extra_premium),
+            totalInstallments: count,
+            startDate: new Date(formData.start_date || new Date()),
+            config: getInsurerConfig(formData.insurer_id)
         }
+
+        const newInstallments = calculateInstallments(input)
         setInstallments(newInstallments)
     }
 
@@ -587,6 +621,18 @@ export default function NewPolicyPage() {
                                         <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
                                     ))}
                                 </select>
+                                {parsedClientName && !formData.client_id && (
+                                    <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                        <span className="text-[10px] font-bold text-amber-700 uppercase">IA Sugiere: "{parsedClientName}" (Sin coincidencia exacta)</span>
+                                    </div>
+                                )}
+                                {parsedClientName && formData.client_id && (
+                                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        <span className="text-[10px] font-bold text-emerald-700 uppercase">IA Empató con éxito: "{parsedClientName}"</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">
@@ -617,6 +663,55 @@ export default function NewPolicyPage() {
                                         <option key={a.id} value={a.id}>{a.code} - {a.description}</option>
                                     ))}
                                 </select>
+                                {parsedAgentCode && !formData.agent_code_id && (
+                                    <div className="mt-2 p-3 bg-indigo-50 rounded-xl border border-indigo-200 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                                            <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight">Nueva Clave Detectada: "{parsedAgentCode}"</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <select
+                                                className="text-[10px] p-1.5 rounded-lg border border-indigo-100 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                                value={newAgentData.broker_name}
+                                                onChange={(e) => setNewAgentData({ ...newAgentData, broker_name: e.target.value })}
+                                            >
+                                                <option value="">Despacho / Directo</option>
+                                                <option value="ClickSeguros">ClickSeguros</option>
+                                                <option value="Aarco">Aarco</option>
+                                                <option value="Grupo Inglaterra">Grupo Inglaterra</option>
+                                                <option value="Particular">Particular / Otro</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    const { data, error } = await (supabase.from('agent_codes') as any).insert({
+                                                        user_id: (await supabase.auth.getUser()).data.user?.id,
+                                                        insurer_id: formData.insurer_id,
+                                                        code: newAgentData.code,
+                                                        broker_name: newAgentData.broker_name || null,
+                                                        type: newAgentData.broker_name ? 'broker' : 'direct',
+                                                        description: `Auto-capturado: ${parsedAgentName || 'Agente'}`
+                                                    }).select().single()
+
+                                                    if (data) {
+                                                        setAgentCodes(prev => [...prev, data])
+                                                        setFormData({ ...formData, agent_code_id: data.id })
+                                                        alert('Clave de agente guardada con éxito')
+                                                    }
+                                                }}
+                                                className="bg-indigo-600 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-all uppercase tracking-widest"
+                                            >
+                                                Registrar Clave
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {parsedAgentCode && formData.agent_code_id && (
+                                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Clave reconocida: "{parsedAgentCode}"</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -627,6 +722,24 @@ export default function NewPolicyPage() {
                             <h3 className="text-xl font-bold text-slate-900">Especificaciones Técnicas</h3>
                             <p className="text-slate-500 text-sm italic">Defina el ramo y número de identificación oficial.</p>
                         </div>
+
+                        {parsedClientName && (
+                            <div className="bg-slate-900 rounded-2xl p-4 text-white flex items-center justify-between shadow-lg">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center">
+                                        <Shield className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Borrador IA Detectado</p>
+                                        <p className="font-bold">{parsedClientName}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Póliza</p>
+                                    <p className="font-mono text-sm">{formData.policy_number || '---'}</p>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
