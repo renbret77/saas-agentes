@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import {
     CreditCard, Zap, ShieldCheck, CheckCircle2, Crown,
-    Bot, Star, Sparkles, AlertCircle, ArrowRight
+    Bot, Star, Sparkles, AlertCircle, ArrowRight, MessageSquare
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { createCheckoutSession } from "./actions"
@@ -27,15 +27,15 @@ export default function BillingPage() {
 
             // Get the user's agency ID
             const { data: profile } = await supabase.from('profiles').select('agency_id').eq('id', session.user.id).single()
-            if (!profile?.agency_id) return setLoading(false)
+            if (!(profile as any)?.agency_id) return setLoading(false)
 
             // Get Agency Details
-            const { data: agency } = await supabase.from('agencies').select('license_type').eq('id', profile.agency_id).single()
+            const { data: agency } = await supabase.from('agencies').select('license_type').eq('id', (profile as any).agency_id).single()
 
             // Note: credits and addons fetching will go here once the tables have mock data
 
             setAgencyStatus({
-                license: agency?.license_type || 'free',
+                license: (agency as any)?.license_type || 'free',
                 credits: 10, // Mock for now
                 addons: []
             })
