@@ -1,0 +1,330 @@
+"use client"
+
+import React, { useEffect, useState } from "react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText } from "lucide-react"
+import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import { Database } from "@/types/database.types"
+
+type Policy = Database['public']['Tables']['policies']['Row'] & {
+    clients: { first_name: string, last_name: string },
+    insurers: { name: string, alias: string },
+    insurance_lines: { name: string }
+}
+
+export default function PoliciesPage() {
+    const [policies, setPolicies] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+    const [searchTerm, setSearchTerm] = useState("")
+    const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
+    const formatCurrency = (val: any) => {
+        try {
+            const num = parseFloat(String(val).replace(/,/g, ''));
+            return isNaN(num) ? "0.00" : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch { return "0.00"; }
+    };
+
+    useEffect(() => {
+        fetchPolicies()
+    }, [])
+
+    const fetchPolicies = async () => {
+        try {
+            setLoading(true)
+            const { data, error } = await supabase
+                .from('policies')
+                .select(`
+                    *,
+                    clients (first_name, last_name, phone),
+                    insurers (name, alias),
+                    insurance_lines (name),
+                    policy_installments (whatsapp_sent, whatsapp_status, due_date),
+                    policy_documents (document_type, file_url)
+                `)
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setPolicies(data || [])
+        } catch (error) {
+            console.error('Error loading policies:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const filteredPolicies = policies.filter(policy =>
+        (policy.policy_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (policy.clients?.first_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (policy.clients?.last_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const getComputedStatus = (policy: any) => {
+        if (policy.status === 'Cancelada') return { text: 'Cancelada', color: 'bg-slate-100 text-slate-800' }
+
+        const endDate = new Date(policy.end_date)
+        endDate.setHours(0, 0, 0, 0)
+
+        const diffTime = endDate.getTime() - today.getTime()
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+        if (diffDays < 0) return { text: 'Vencida', color: 'bg-rose-100 text-rose-800' }
+        if (diffDays <= 30) return { text: 'Por Vencer', color: 'bg-amber-100 text-amber-800' }
+        return { text: 'Vigente', color: 'bg-emerald-100 text-emerald-800' }
+    }
+
+    return (
+        <div className="space-y-8">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Gestión de Pólizas</h1>
+                    <p className="text-slate-500 mt-1">Administra el inventario de riesgos y vigencias.</p>
+                </div>
+                <Link href="/dashboard/policies/new" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 font-semibold transition-all shadow-lg shadow-emerald-200 active:scale-95">
+                    <Plus className="w-5 h-5" />
+                    Nueva Póliza
+                </Link>
+            </div>
+
+            {/* Stats Overview (Mini) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600">
+                        <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Vigentes</p>
+                        <p className="text-2xl font-bold text-slate-900">{policies.filter(p => getComputedStatus(p).text === 'Vigente').length}</p>
+                    </div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 bg-rose-50 rounded-lg flex items-center justify-center text-rose-600">
+                        <Calendar className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Por Vencer / Vencidas</p>
+                        <p className="text-2xl font-bold text-slate-900">{policies.filter(p => ['Por Vencer', 'Vencida'].includes(getComputedStatus(p).text)).length}</p>
+                    </div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
+                        <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Aseguradoras</p>
+                        <p className="text-2xl font-bold text-slate-900">{new Set(policies.map(p => p.insurer_id)).size}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por número o cliente..."
+                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* Policies Table */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {loading ? (
+                    <div className="p-12 text-center text-slate-500 flex flex-col items-center gap-4">
+                        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="font-medium">Cargando catálogo de pólizas...</p>
+                    </div>
+                ) : filteredPolicies.length === 0 ? (
+                    <div className="p-16 text-center">
+                        <div className="bg-slate-50 mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-6">
+                            <Shield className="w-10 h-10 text-slate-300" />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900">No hay pólizas registradas</h3>
+                        <p className="text-slate-500 mt-2 max-w-xs mx-auto">Comienza agregando tu primera póliza para gestionar las vigencias y siniestros.</p>
+                        <Link href="/dashboard/policies/new" className="mt-6 inline-flex items-center text-emerald-600 font-semibold hover:underline">
+                            Registrar nueva póliza →
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-slate-600 border-collapse">
+                            <thead className="bg-slate-50/80 border-b border-slate-200 text-[11px] uppercase tracking-widest font-bold text-slate-500">
+                                <tr>
+                                    <th className="px-6 py-4 w-10"></th>
+                                    <th className="px-6 py-4">Póliza / Ramo</th>
+                                    <th className="px-6 py-4">Cliente / Contacto</th>
+                                    <th className="px-6 py-4">Aseguradora</th>
+                                    <th className="px-6 py-4">Prima Total</th>
+                                    <th className="px-6 py-4">Vigencia</th>
+                                    <th className="px-6 py-4">Recibos</th>
+                                    <th className="px-6 py-4">Estado</th>
+                                    <th className="px-6 py-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredPolicies.map((policy, index) => {
+                                    const isExpanded = expandedRow === policy.id;
+                                    const status = getComputedStatus(policy);
+                                    const paidInstallments = policy.policy_installments?.length || 0; // Simplificado por ahora
+
+                                    return (
+                                        <React.Fragment key={policy.id}>
+                                            <tr className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-emerald-50/30 transition-colors group cursor-pointer`} onClick={() => setExpandedRow(isExpanded ? null : policy.id)}>
+                                                <td className="px-4 py-5 text-center">
+                                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-emerald-600" /> : <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400" />}
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors uppercase">{policy.policy_number}</span>
+                                                            {policy.policy_documents?.some((d: any) => d.document_type === 'Carátula') && (
+                                                                <a
+                                                                    href={policy.policy_documents.find((d: any) => d.document_type === 'Carátula').file_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="text-emerald-600 hover:text-emerald-800 transition-colors"
+                                                                    title="Ver Carátula"
+                                                                >
+                                                                    <FileText className="w-4 h-4" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{policy.insurance_lines?.name || 'Varios'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-700">
+                                                            {policy.clients?.first_name} {policy.clients?.last_name}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 font-medium italic">{policy.clients?.phone || 'Sin Teléfono'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-semibold text-slate-800">{policy.insurers?.alias || policy.insurers?.name}</span>
+                                                        <span className="text-[10px] text-slate-400 uppercase tracking-tighter">{policy.payment_method}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-[10px] font-bold text-slate-400">{policy.currency}</span>
+                                                        <span className="text-sm font-black text-slate-900">${formatCurrency(policy.premium_total)}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col text-[10px]">
+                                                        <span className="text-slate-500 font-medium italic">Fin: {new Date(policy.end_date).toLocaleDateString()}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: '10%' }}></div>
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-slate-500">1 / {policy.total_installments || 1}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest shadow-sm border
+                                                        ${status.color.replace('bg-', 'bg-opacity-20 border-')}`}>
+                                                        {status.text}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Link href={`/dashboard/policies/${policy.id}`} onClick={(e) => e.stopPropagation()} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-100">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                                                        </Link>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {isExpanded && (
+                                                <tr className="bg-slate-50 border-x-2 border-emerald-500/20">
+                                                    <td colSpan={9} className="px-12 py-6">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
+                                                            <div className="space-y-3">
+                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2">
+                                                                    <Info className="w-3 h-3" /> Detalles de Cobertura
+                                                                </h4>
+                                                                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2 shadow-sm">
+                                                                    <div className="flex justify-between text-xs">
+                                                                        <span className="text-slate-500">Descripción:</span>
+                                                                        <span className="font-bold text-slate-800 capitalize">{policy.description || 'N/A'}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between text-xs">
+                                                                        <span className="text-slate-500">Sub-Ramo:</span>
+                                                                        <span className="font-bold text-slate-800">{policy.sub_branch || 'General'}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between text-xs">
+                                                                        <span className="text-slate-500">Inicio Vigencia:</span>
+                                                                        <span className="font-bold text-slate-800">{new Date(policy.start_date).toLocaleDateString()}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-3">
+                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2">
+                                                                    <CreditCard className="w-3 h-3" /> Desglose Financiero
+                                                                </h4>
+                                                                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2 shadow-sm">
+                                                                    <div className="flex justify-between text-xs text-slate-500">
+                                                                        <span>Prima Neta:</span>
+                                                                        <span className="font-medium">${formatCurrency(policy.premium_net)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between text-xs text-slate-500">
+                                                                        <span>IVA / Impuestos:</span>
+                                                                        <span className="font-medium">${formatCurrency(policy.tax || policy.vat_amount)}</span>
+                                                                    </div>
+                                                                    <div className="pt-2 border-t border-slate-100 flex justify-between text-xs">
+                                                                        <span className="font-bold text-slate-900 uppercase">Total:</span>
+                                                                        <span className="font-black text-emerald-600">${formatCurrency(policy.premium_total)} {policy.currency}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-3">
+                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2">
+                                                                    <MessageCircle className="w-3 h-3" /> Gestión y Contacto
+                                                                </h4>
+                                                                <div className="flex flex-col gap-2">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const message = encodeURIComponent(`Hola ${policy.clients?.first_name} 👋, te recordamos el pago de tu póliza ${policy.policy_number} de ${policy.insurers?.alias || policy.insurers?.name} 📄. ¡Saludos! ✅`)
+                                                                            window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${message}`, '_blank')
+                                                                        }}
+                                                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                                                                    >
+                                                                        <MessageCircle className="w-4 h-4" /> Enviar Recordatorio WhatsApp
+                                                                    </button>
+                                                                    {policy.notes && (
+                                                                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-[10px] text-amber-800 leading-tight">
+                                                                            <span className="font-bold">NOTAS:</span> {policy.notes}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
