@@ -14,6 +14,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [mounted, setMounted] = useState(false)
+    const [blockMessage, setBlockMessage] = useState("")
 
     useEffect(() => {
         setMounted(true)
@@ -24,15 +25,41 @@ export default function LoginPage() {
         setIsLoading(true)
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            setBlockMessage("")
+            const { data: authData, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             })
 
             if (error) {
                 console.error("Error signing in:", error.message)
-                alert("Error: " + error.message) // Simple alert for now, can be improved to UI banner
-            } else {
+                setBlockMessage("Credenciales inválidas. Por favor verifique su correo y contraseña.")
+                setIsLoading(false)
+                return
+            }
+
+            if (authData.user) {
+                // Device Fingerprinting Logic
+                let deviceId = localStorage.getItem('sas_device_id')
+                if (!deviceId) {
+                    deviceId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+                    localStorage.setItem('sas_device_id', deviceId)
+                }
+
+                // Call a secure RPC to log the device and assert Free tier limits
+                const { data: isAllowed, error: rpcError } = await (supabase.rpc as any)('assert_device_limit', {
+                    p_user_id: authData.user.id,
+                    p_device_id: deviceId
+                })
+
+                if (rpcError || !isAllowed) {
+                    // Sign them back out if they are blocked by the fingerprint limit
+                    await supabase.auth.signOut()
+                    setBlockMessage("Hemos detectado actividad inusual: múltiples cuentas gratuitas intentando acceder desde este mismo dispositivo físico. Por regulaciones de privacidad y protección de cartera (CNSF), el acceso ha sido bloqueado temporalmente. Si usted es una Promotoría o Agencia con múltiples agentes, por favor actualice a la Licencia Pro.")
+                    setIsLoading(false)
+                    return
+                }
+
                 router.push('/dashboard')
             }
         } catch (err) {
@@ -97,6 +124,13 @@ export default function LoginPage() {
                         onSubmit={handleLogin}
                         className="space-y-6"
                     >
+                        {blockMessage && (
+                            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm font-medium text-rose-800 flex items-start gap-3">
+                                <ShieldCheck className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                                <p>{blockMessage}</p>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-slate-700">Correo Electrónico</label>
