@@ -5,7 +5,7 @@ export async function createCheckoutSession(priceId: string, type: 'subscription
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) throw new Error("No estás autenticado")
 
-        const res = await fetch('/api/stripe/checkout', {
+        const res = await fetch('/api/checkout', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -13,8 +13,8 @@ export async function createCheckoutSession(priceId: string, type: 'subscription
             },
             body: JSON.stringify({
                 priceId,
-                type,
-                // These URLs redirect the user back to the app after Stripe
+                mode: type === 'subscription' ? 'subscription' : 'payment',
+                credits: type === 'credits' ? (priceId.includes('50') ? 50 : 10) : 0,
                 successUrl: `${window.location.origin}/dashboard/billing?success=true`,
                 cancelUrl: `${window.location.origin}/dashboard/billing?canceled=true`
             })

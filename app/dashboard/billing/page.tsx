@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import {
     CreditCard, Zap, ShieldCheck, CheckCircle2, Crown,
-    Bot, Star, Sparkles, AlertCircle, ArrowRight, MessageSquare
+    Bot, Star, Sparkles, AlertCircle, ArrowRight, MessageSquare,
+    Building2, IdCard, MapPin, Save
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { createCheckoutSession } from "./actions"
@@ -14,8 +15,17 @@ export default function BillingPage() {
     const [agencyStatus, setAgencyStatus] = useState({
         license: 'free',
         credits: 0,
-        addons: [] as string[]
+        addons: [] as string[],
+        agency_id: null as string | null
     })
+
+    const [fiscalData, setFiscalData] = useState({
+        rfc: '',
+        fiscal_name: '',
+        tax_regime: '',
+        fiscal_address_zip: ''
+    })
+    const [isSavingFiscal, setIsSavingFiscal] = useState(false)
 
     // Switch between Monthly / Yearly pricing
     const [isYearly, setIsYearly] = useState(false)
@@ -28,21 +38,56 @@ export default function BillingPage() {
             // Get the user's agency ID
             const { data: profile } = await supabase.from('profiles').select('agency_id').eq('id', session.user.id).single()
             if (!(profile as any)?.agency_id) return setLoading(false)
+            const agencyId = (profile as any).agency_id
 
             // Get Agency Details
-            const { data: agency } = await supabase.from('agencies').select('license_type').eq('id', (profile as any).agency_id).single()
+            const { data: agency } = await supabase.from('agencies')
+                .select('license_type, rfc, fiscal_name, tax_regime, fiscal_address_zip')
+                .eq('id', agencyId)
+                .single()
 
-            // Note: credits and addons fetching will go here once the tables have mock data
+            // Get Real Credits Balance
+            const { data: credits }: any = await (supabase.from('user_credits') as any).select('balance').eq('user_id', session.user.id).single()
 
             setAgencyStatus({
                 license: (agency as any)?.license_type || 'free',
-                credits: 10, // Mock for now
-                addons: []
+                credits: credits?.balance || 0,
+                addons: [],
+                agency_id: agencyId
             })
+
+            if (agency) {
+                setFiscalData({
+                    rfc: (agency as any).rfc || '',
+                    fiscal_name: (agency as any).fiscal_name || '',
+                    tax_regime: (agency as any).tax_regime || '',
+                    fiscal_address_zip: (agency as any).fiscal_address_zip || ''
+                })
+            }
+
             setLoading(false)
         }
         fetchStatus()
     }, [])
+
+    const handleSaveFiscalData = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!agencyStatus.agency_id) return
+        setIsSavingFiscal(true)
+
+        try {
+            const { error } = await (supabase.from('agencies') as any)
+                .update(fiscalData as any)
+                .eq('id', agencyStatus.agency_id)
+
+            if (error) throw error
+            alert("✅ Datos fiscales actualizados correctamente.")
+        } catch (err: any) {
+            alert("Error: " + err.message)
+        } finally {
+            setIsSavingFiscal(false)
+        }
+    }
 
     const handleCheckout = async (priceId: string, type: 'subscription' | 'credits' | 'addon') => {
         const res = await createCheckoutSession(priceId, type)
@@ -218,6 +263,93 @@ export default function BillingPage() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* FISCAL DATA FORM */}
+            <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-xl relative overflow-hidden">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div>
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            <Building2 className="w-7 h-7 text-indigo-600" /> Datos de Facturación (CFDI 4.0)
+                        </h3>
+                        <p className="text-slate-500 font-medium mt-1">Configura tu identidad fiscal para recibir facturas automáticas de Stripe.</p>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-700 text-xs font-bold uppercase tracking-widest self-start">
+                        <ShieldCheck className="w-4 h-4" /> Conexión SAT Segura
+                    </div>
+                </div>
+
+                <form onSubmit={handleSaveFiscalData} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <IdCard className="w-4 h-4 text-slate-400" /> RFC
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="XAXX010101000"
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono tracking-wider transition-all"
+                            value={fiscalData.rfc}
+                            onChange={(e) => setFiscalData({ ...fiscalData, rfc: e.target.value.toUpperCase() })}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-slate-400" /> Razón Social (Tal cual en constancia)
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="NOMBRE O RAZÓN SOCIAL COMPLETA"
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all uppercase"
+                            value={fiscalData.fiscal_name}
+                            onChange={(e) => setFiscalData({ ...fiscalData, fiscal_name: e.target.value.toUpperCase() })}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <Star className="w-4 h-4 text-slate-400" /> Régimen Fiscal
+                        </label>
+                        <select
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none"
+                            value={fiscalData.tax_regime}
+                            onChange={(e) => setFiscalData({ ...fiscalData, tax_regime: e.target.value })}
+                        >
+                            <option value="">Selecciona tu régimen...</option>
+                            <option value="601">601 - General de Ley Personas Morales</option>
+                            <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
+                            <option value="605">605 - Sueldos y Salarios</option>
+                            <option value="606">606 - Arrendamiento</option>
+                            <option value="612">612 - Actividades Empresariales y Profesionales</option>
+                            <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-slate-400" /> Código Postal Fiscal
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="00000"
+                            maxLength={5}
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={fiscalData.fiscal_address_zip}
+                            onChange={(e) => setFiscalData({ ...fiscalData, fiscal_address_zip: e.target.value.replace(/\D/g, '') })}
+                        />
+                    </div>
+
+                    <div className="md:col-span-2 pt-4">
+                        <button
+                            type="submit"
+                            disabled={isSavingFiscal}
+                            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                        >
+                            {isSavingFiscal ? <Sparkles className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            {isSavingFiscal ? "Guardando..." : "Guardar Configuración Fiscal"}
+                        </button>
+                    </div>
+                </form>
             </div>
 
             {/* Warning Note */}

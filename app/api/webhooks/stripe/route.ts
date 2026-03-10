@@ -1,119 +1,77 @@
-import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from "next/server"
+import { stripe } from "@/lib/stripe"
+import { createClient } from "@supabase/supabase-js"
 
-export async function POST(req: Request) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
-    const body = await req.text()
-    const signature = req.headers.get('Stripe-Signature') as string
-
-    let event
-
+export async function POST(req: NextRequest) {
     try {
-        event = stripe.webhooks.constructEvent(
-            body,
-            signature,
-            process.env.STRIPE_WEBHOOK_SECRET!
-        )
-    } catch (err: any) {
-        console.error(`Webhook signature verification failed.`, err.message)
-        return NextResponse.json({ error: err.message }, { status: 400 })
-    }
+        const payload = await req.text()
+        const sig = req.headers.get("stripe-signature")!
 
-    try {
-        switch (event.type) {
-            case 'checkout.session.completed':
-                const session = event.data.object as any
+        let event
+        try {
+            event = stripe.webhooks.constructEvent(payload, sig, endpointSecret)
+        } catch (err: any) {
+            console.error("Webhook signature verification failed:", err.message)
+            return NextResponse.json({ error: "Webhook Error" }, { status: 400 })
+        }
 
-                // Retrieve the metadata we passed when creating the checkout
-                const agencyId = session.metadata?.agency_id
-                const purchaseType = session.metadata?.type // 'subscription', 'credits', 'addon'
+        const supabase = createClient(supabaseUrl, supabaseKey)
 
-                if (!agencyId) throw new Error("Agency ID missing in metadata")
+        if (event.type === "checkout.session.completed") {
+            const session = event.data.object as any
+            const metadata = session.metadata
+            const agencyId = metadata.agency_id
+            const userId = metadata.user_id
 
-                if (purchaseType === 'subscription') {
-                    // Update agency license
-                    await supabaseAdmin
-                        .from('agencies')
-                        .update({
-                            license_type: 'pro',
-                            status: 'active',
-                            max_users: 10,
-                            max_clients: 9999,
-                            max_policies: 9999
-                        })
-                        .eq('id', agencyId)
+            if (metadata.type === 'credits') {
+                const creditsToAdd = parseInt(metadata.credits || "0")
 
-                    // Update subscriptions table
-                    await supabaseAdmin
-                        .from('subscriptions')
-                        .insert({
-                            agency_id: agencyId,
-                            stripe_subscription_id: session.subscription as string,
-                            stripe_price_id: session.metadata?.price_id || 'unknown',
-                            status: 'active',
-                            current_period_start: new Date(Date.now()).toISOString(),
-                            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                        })
+                // Update user_credits balance
+                const { error: creditError } = await (supabase
+                    .from('user_credits') as any)
+                    .upsert({
+                        user_id: userId,
+                        balance: (await fetchCurrentBalance(supabase, userId)) + creditsToAdd,
+                        updated_at: new Date().toISOString()
+                    })
 
-                } else if (purchaseType === 'credits') {
-                    // Logic to add credits to the agency
-                    console.log(`Bought credits for agency ${agencyId}`)
-                    // (Assuming you have an `ai_credits` column in agencies)
-                    // await supabaseAdmin.rpc('increment_agency_credits', { p_agency_id: agencyId, p_amount: 50 })
-                }
+                if (creditError) throw creditError
 
-                // Log transaction
-                await supabaseAdmin.from('transactions').insert({
+                // Log the transaction
+                await (supabase.from('transactions') as any).insert({
                     agency_id: agencyId,
-                    stripe_payment_intent_id: session.payment_intent as string || session.id,
-                    amount_subtotal: session.amount_subtotal,
+                    stripe_payment_intent_id: session.payment_intent,
                     amount_total: session.amount_total,
                     currency: session.currency,
+                    description: `IA Credits Top-up: ${creditsToAdd} credits`,
                     status: 'succeeded',
-                    metadata: session.metadata
+                    metadata: metadata
                 })
-
-                break
-
-            case 'customer.subscription.deleted':
-                const subscription = event.data.object as any
-
-                // Find agency and downgrade to free
-                const { data: subData } = await supabaseAdmin
-                    .from('subscriptions')
-                    .select('agency_id')
-                    .eq('stripe_subscription_id', subscription.id)
-                    .single()
-
-                if (subData?.agency_id) {
-                    await supabaseAdmin
-                        .from('agencies')
-                        .update({
-                            license_type: 'free',
-                            max_users: 1,
-                            max_clients: 20,
-                            max_policies: 20
-                        })
-                        .eq('id', subData.agency_id)
-
-                    await supabaseAdmin
-                        .from('subscriptions')
-                        .update({ status: 'canceled' })
-                        .eq('stripe_subscription_id', subscription.id)
-                }
-                break
-
-            default:
-                console.log(`Unhandled event type: ${event.type}`)
+            } else if (metadata.type === 'subscription') {
+                // Update subscription table
+                await (supabase.from('subscriptions') as any).upsert({
+                    agency_id: agencyId,
+                    stripe_subscription_id: session.subscription,
+                    stripe_price_id: session.line_items?.data[0]?.price.id,
+                    status: 'active',
+                    current_period_start: new Date().toISOString(),
+                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+                })
+            }
         }
-    } catch (err: any) {
-        console.error('Error processing webhook event', err)
-        return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
-    }
 
-    return NextResponse.json({ received: true })
+        return NextResponse.json({ received: true })
+    } catch (error: any) {
+        console.error("Webhook processing error:", error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+}
+
+async function fetchCurrentBalance(supabase: any, userId: string): Promise<number> {
+    const { data } = await supabase.from('user_credits').select('balance').eq('user_id', userId).single()
+    return data?.balance || 0
 }

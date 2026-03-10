@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Upload, FileText, CheckCircle2, ChevronRight, AlertCircle, ArrowLeft, Table, Database, RefreshCw, Trash2, Info } from "lucide-react"
+import { Upload, FileText, CheckCircle2, ChevronRight, AlertCircle, ArrowLeft, Table, Database, RefreshCw, Trash2, Info, Sparkles, Cpu, Plus } from "lucide-react"
 import Link from "next/link"
 import Papa from "papaparse"
 import { supabase } from "@/lib/supabase"
+import { IMPORT_SCHEMAS } from "@/lib/import-schemas"
 
 type ImportStep = 1 | 2 | 3 | 4 // 1: Upload, 2: Map, 3: Preview, 4: Done
 
@@ -16,30 +17,11 @@ export default function ImportPage() {
     const [csvHeaders, setCsvHeaders] = useState<string[]>([])
     const [mapping, setMapping] = useState<Record<string, string>>({})
     const [isProcessing, setIsProcessing] = useState(false)
+    const [isAnalyzing, setIsAnalyzing] = useState(false)
     const [progress, setProgress] = useState(0)
     const [results, setResults] = useState({ success: 0, error: 0, details: [] as string[] })
 
-    // Schema targets (campos que necesitamos en BD)
-    const schemaTargets = {
-        clients: [
-            { key: 'first_name', label: 'Nombre(s)', required: true },
-            { key: 'last_name', label: 'Apellidos', required: true },
-            { key: 'email', label: 'Correo Electrónico', required: false },
-            { key: 'phone', label: 'Teléfono / WhatsApp', required: false },
-            { key: 'rfc', label: 'RFC', required: false },
-            { key: 'notes', label: 'Notas / Comentarios', required: false }
-        ],
-        policies: [
-            { key: 'policy_number', label: 'No. Póliza', required: true },
-            { key: 'client_name', label: 'Nombre del Cliente', required: true }, // Para búsqueda
-            { key: 'insurer_name', label: 'Aseguradora', required: true },
-            { key: 'branch_name', label: 'Ramo', required: false },
-            { key: 'start_date', label: 'Inicio Vigencia', required: true },
-            { key: 'end_date', label: 'Fin Vigencia', required: true },
-            { key: 'premium_total', label: 'Prima Total', required: false },
-            { key: 'payment_method', label: 'Forma de Pago', required: false }
-        ]
-    }
+    const schemaTargets = IMPORT_SCHEMAS
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0]
@@ -60,7 +42,7 @@ export default function ImportPage() {
                     const targets = schemaTargets[importType]
                     Object.keys(data[0]).forEach(header => {
                         const h = header.toLowerCase()
-                        targets.forEach(t => {
+                        targets.forEach((t: any) => {
                             if (h.includes(t.key.toLowerCase()) || h.includes(t.label.toLowerCase())) {
                                 initialMapping[t.key] = header
                             }
@@ -70,6 +52,32 @@ export default function ImportPage() {
                 }
             }
         })
+    }
+
+    const handleAiAnalysis = async () => {
+        if (!csvHeaders.length || !csvData.length) return
+        setIsAnalyzing(true)
+
+        try {
+            const response = await fetch('/api/import/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    importType,
+                    headers: csvHeaders,
+                    sampleData: csvData.slice(0, 3)
+                })
+            })
+
+            const result = await response.json()
+            if (result.mapping) {
+                setMapping(prev => ({ ...prev, ...result.mapping }))
+            }
+        } catch (error) {
+            console.error("AI Analysis failed:", error)
+        } finally {
+            setIsAnalyzing(false)
+        }
     }
 
     const startImport = async () => {
@@ -86,16 +94,12 @@ export default function ImportPage() {
                 const dataToImport = results.data.map((row: any) => {
                     const obj: any = {}
                     Object.entries(mapping).forEach(([targetKey, csvHeader]) => {
-                        obj[targetKey] = row[csvHeader]
+                        if (csvHeader) obj[targetKey] = row[csvHeader]
                     })
                     return obj
                 })
 
-                // Aquí vendría la lógica de inserción masiva a Supabase
-                // Por ahora simulamos progreso
-                await new Promise(r => setTimeout(r, 500))
-
-                // Ejecutar la importación vía RPC para mayor velocidad
+                // Ejecutar la importación vía RPC
                 const rpcName = importType === 'clients' ? 'bulk_import_clients' : 'bulk_import_policies'
                 const rpcArg = importType === 'clients' ? { client_data: dataToImport } : { policy_data: dataToImport }
 
@@ -132,11 +136,11 @@ export default function ImportPage() {
                     <Link href="/dashboard" className="text-slate-500 hover:text-emerald-600 flex items-center gap-1 text-sm font-medium transition-colors mb-2">
                         <ArrowLeft className="w-4 h-4" /> Volver al Dashboard
                     </Link>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Migración SICAS</h1>
-                    <p className="text-slate-500">Importador masivo de clientes y pólizas por lotes CSV.</p>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Migración Inteligente</h1>
+                    <p className="text-slate-500">Importador de RB Proyectos con mapeo asistido por IA.</p>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-100 text-amber-700 text-xs font-bold uppercase tracking-widest">
-                    <Database className="w-4 h-4" /> Modo Transaccional
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 rounded-xl border border-slate-800 text-white text-xs font-bold uppercase tracking-widest">
+                    <Cpu className="w-4 h-4 text-emerald-400" /> Powered by RB Proyectos
                 </div>
             </div>
 
@@ -180,7 +184,7 @@ export default function ImportPage() {
                                     <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400 group-hover:text-emerald-500 transition-colors mb-4">
                                         <Upload className="w-8 h-8" />
                                     </div>
-                                    <p className="text-lg font-bold text-slate-700">Subir reporte de SICAS (CSV)</p>
+                                    <p className="text-lg font-bold text-slate-700">Subir reporte (Excel/CSV)</p>
                                     <p className="text-xs text-slate-500 mt-2">Formatos aceptados: .csv (UTF-8 recomendado)</p>
                                 </div>
                                 <input type="file" className="hidden" accept=".csv" onChange={handleFileChange} />
@@ -208,17 +212,27 @@ export default function ImportPage() {
                 {/* Step 2: Mapping */}
                 {step === 2 && (
                     <div className="p-8 flex-1 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <div className="mb-8">
-                            <h2 className="text-xl font-bold text-slate-900">Mapeo de Datos</h2>
-                            <p className="text-slate-500 text-sm">Relaciona las columnas del CSV de SICAS con los campos del sistema.</p>
+                        <div className="mb-8 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">Mapeo de Datos</h2>
+                                <p className="text-slate-500 text-sm">Relaciona las columnas del CSV con los campos de RB Proyectos.</p>
+                            </div>
+                            <button
+                                onClick={handleAiAnalysis}
+                                disabled={isAnalyzing}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-emerald-400 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all border border-slate-700 shadow-xl disabled:opacity-50"
+                            >
+                                {isAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                Mapeo Mágico (IA)
+                            </button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                    <PlusIcon className="w-3 h-3" /> Campos Requeridos
+                                    Campos Requeridos
                                 </h3>
-                                {schemaTargets[importType].filter(t => t.required).map(target => (
+                                {(schemaTargets[importType] as any[]).filter((t: any) => t.required).map((target: any) => (
                                     <div key={target.key} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-2">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm font-bold text-slate-700">{target.label}</span>
@@ -238,7 +252,7 @@ export default function ImportPage() {
 
                             <div className="space-y-4">
                                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Campos Opcionales</h3>
-                                {schemaTargets[importType].filter(t => !t.required).map(target => (
+                                {(schemaTargets[importType] as any[]).filter((t: any) => !t.required).map((target: any) => (
                                     <div key={target.key} className="flex items-center gap-4 justify-between p-3 border-b border-slate-100">
                                         <span className="text-sm text-slate-600 font-medium">{target.label}</span>
                                         <select
@@ -258,7 +272,7 @@ export default function ImportPage() {
                             <button onClick={() => setStep(1)} className="px-6 py-2.5 text-slate-500 font-bold hover:text-slate-700 transition-colors">Atrás</button>
                             <button
                                 onClick={startImport}
-                                disabled={!Object.values(mapping).some(v => v !== "")}
+                                disabled={!Object.values(mapping).some(v => v !== "") || isProcessing}
                                 className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 transition-all"
                             >
                                 <RefreshCw className={`w-5 h-5 ${isProcessing ? 'animate-spin' : ''}`} />
@@ -293,7 +307,7 @@ export default function ImportPage() {
                             </div>
                         </div>
                         <div className="text-center space-y-2">
-                            <h3 className="text-xl font-bold text-slate-900">Procesando registros de SICAS</h3>
+                            <h3 className="text-xl font-bold text-slate-900">Procesando registros...</h3>
                             <p className="text-slate-500 max-w-sm">Estamos conectando con Supabase e inyectando los datos de forma segura. No cierres esta pestaña.</p>
                         </div>
                     </div>

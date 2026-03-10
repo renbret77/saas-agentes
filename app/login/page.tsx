@@ -107,7 +107,7 @@ export default function LoginPage() {
                             <div className="p-2 bg-emerald-100 rounded-lg">
                                 <ShieldCheck className="h-8 w-8" />
                             </div>
-                            <span className="text-xl font-bold tracking-tight text-slate-900">Seguros RB</span>
+                            <span className="text-xl font-bold tracking-tight text-slate-900">RB Proyectos</span>
                         </motion.div>
 
                         <motion.h1

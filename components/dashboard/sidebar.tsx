@@ -100,7 +100,7 @@ export function Sidebar() {
 
         if (profile) {
             setUserRole((profile as any).role)
-            setUserName((profile as any).full_name || user.email?.split('@')[0] || "Usuario")
+            setUserName((profile as any).full_name || user.email || "Usuario")
             setLicenseType((profile as any).agencies?.license_type || 'free')
             if ((profile as any).role === 'assistant') {
                 const { data: perms } = await supabase.from('assistant_permissions').select('*').eq('assistant_id', user.id).single()
@@ -150,7 +150,7 @@ export function Sidebar() {
             <div className="lg:hidden p-4 flex items-center justify-between bg-white border-b">
                 <div className="flex items-center gap-2 text-emerald-600 font-bold">
                     <ShieldCheck className="h-6 w-6" />
-                    <span>Seguros RB</span>
+                    <span>RB Proyectos</span>
                 </div>
                 <button onClick={() => setIsMobileOpen(!isMobileOpen)}>
                     <Menu className="h-6 w-6 text-slate-600" />
@@ -167,7 +167,7 @@ export function Sidebar() {
                 <div className="h-16 flex flex-col justify-center px-6 border-b border-slate-800">
                     <div className="flex items-center gap-3">
                         <ShieldCheck className="h-8 w-8 text-emerald-400" />
-                        <span className="text-xl font-bold tracking-tight">Seguros RB</span>
+                        <span className="text-xl font-bold tracking-tight">RB Proyectos</span>
                     </div>
                     <div className="mt-2 px-3 py-1 bg-rose-600/10 border border-rose-500/20 rounded-full w-fit">
                         <span className="text-[10px] font-black text-rose-400 tracking-tighter uppercase leading-none flex items-center gap-1.5">

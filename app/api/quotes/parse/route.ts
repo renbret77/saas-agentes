@@ -1,131 +1,112 @@
-import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import OpenAI from "openai"
+
+// Use require for pdf-parse to avoid ESM/TypeScript default import issues in Next.js
+const pdf = require("pdf-parse")
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 export async function POST(req: NextRequest) {
     try {
-        const formData = await req.formData();
-        const file = formData.get("file") as File | null;
+        const supabase = createClient(supabaseUrl, supabaseKey)
+        const formData = await req.formData()
+        const files = formData.getAll("files") as File[]
 
-        if (!file) {
-            return NextResponse.json({ error: "No se proporcionó ningún archivo" }, { status: 400 });
+        const { data: { user }, error: authError } = await supabase.auth.getUser(
+            req.headers.get("Authorization")?.split(" ")[1] || ""
+        )
+
+        if (authError || !user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY!;
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        // --- CREDIT DEDUCTION START ---
-        const { data: creditSpent, error: creditError } = await supabase.rpc('spend_ai_credits', {
-            p_action_type: 'parse_quote_pro',
-            p_cost: 2, // Analysis costs 2 credits
-            p_metadata: { file_name: file.name }
-        });
-
-        if (creditError || !creditSpent) {
-            return NextResponse.json({
-                error: "Créditos insuficientes. El análisis Pro consume 2 créditos."
-            }, { status: 403 });
-        }
-        // --- CREDIT DEDUCTION END ---
-
-        // 1. Reading File Content
-        const buffer = Buffer.from(await file.arrayBuffer());
-        let extractedText = "";
-
-        if (file.type === "application/pdf") {
-            try {
-                const pdf = require("pdf-parse");
-                const data = await pdf(buffer);
-                extractedText = data.text;
-            } catch (err) {
-                console.error("Error parsing PDF:", err);
-                // Fallback: If text-based parse fails, Gemini can handle images directly if we send base64
-            }
+        if (!files || files.length === 0) {
+            return NextResponse.json({ error: "No files uploaded" }, { status: 400 })
         }
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
-            generationConfig: { responseMimeType: "application/json" }
-        });
+        // 0. Verificar y Descontar Créditos IA
+        const { data: hasCredits, error: creditError } = await (supabase
+            .rpc('spend_ai_credits', {
+                p_action_type: 'quote_parse',
+                p_cost: 1,
+                p_metadata: { files_count: files.length }
+            }) as any)
 
-        const prompt = `
-        Eres un experto en seguros de Gastos Médicos Mayores (GMM), Autos y SEGUROS EMPRESARIALES (PyME, RC, Carga) en México.
-        Analiza este documento de cotización y extrae la información en JSON.
-        
-        INSTRUCCIONES DE TONO POR RAMO:
-        - GMM: Tono humano, enfocado en tranquilidad y red hospitalaria.
-        - Autos: Tono práctico, enfocado en asistencia y valor del vehículo.
-        - EMPRESARIAL: Tono técnico-ejecutivo, enfocado en mitigación de riesgos, activos y continuidad de negocio.
-        
-        Si detectas que es GMM:
-        1. Identifica el NIVEL HOSPITALARIO (ej: Amplia, Integra, VIP, Esencial).
-        2. Identifica el ESTADO/CIUDAD de residencia del cliente.
-        
-        FORMATO JSON REQUERIDO:
-        {
-            "client_name": "Nombre extraído",
-            "branch": "GMM", "Autos" o "Empresarial",
-            "location": "Ciudad/Estado",
-            "options": [
-                {
-                    "company": "Nombre Aseguradora",
-                    "price": "$0,000.00",
-                    "plan": "Nombre del Plan",
-                    "hospital_level": "Nivel detectado",
-                    "coverage_summary": "Resumen corto de beneficios principales"
-                }
-            ],
-            "ai_analysis": "Un párrafo persuasivo explicando por qué estas opciones son buenas."
+        if (creditError || !hasCredits) {
+            return NextResponse.json({ error: "Créditos de IA insuficientes o error al procesar" }, { status: 402 })
         }
 
-        TEXTO DEL DOCUMENTO:
-        ${extractedText || "Contenido binario (usa visión si es posible)"}
-        `;
+        // 1. Crear la Sesión de Cotización
+        const { data: session, error: sessionError } = await (supabase
+            .from("quote_sessions") as any)
+            .insert({
+                agency_id: user.user_metadata?.agency_id || (user as any).agency_id,
+                agent_id: user.id,
+                project_title: `Cotización ${new Date().toLocaleDateString('es-MX')}`,
+                insurance_line: "GMM / Autos"
+            })
+            .select()
+            .single()
 
-        // If extractedText is empty, we send the media parts directly
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    data: buffer.toString("base64"),
-                    mimeType: file.type
-                }
-            }
-        ]);
+        if (sessionError) throw sessionError
 
-        const response = await result.response;
-        let aiResult = JSON.parse(response.text().replace(/```json\n?|```/g, '').trim());
+        const results = await Promise.all(
+            files.map(async (file) => {
+                const buffer = Buffer.from(await file.arrayBuffer())
+                const data = await pdf(buffer)
+                const text = data.text
 
-        // 2. ENRICHMENT: Consult hospital catalogs if branch is GMM
-        if (aiResult.branch === "GMM") {
-            const { data: hospitalData } = await supabase
-                .from('hospital_catalogs')
-                .select('*')
-                .ilike('region', `%${aiResult.location || 'Monterrey'}%`);
+                // 2. Extraer con IA
+                const response = await openai.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        {
+                            role: "system",
+                            content: `Eres un experto actuario de seguros en México. 
+                            Tu tarea es extraer datos estructurados de una cotización de seguros en PDF.
+                            Devuelve un JSON con el siguiente esquema:
+                            {
+                                "insurer": "Nombre de la aseguradora",
+                                "policy_holder": "Nombre del prospecto",
+                                "premium_total": number,
+                                "currency": "MXN" | "USD",
+                                "data": {
+                                    "deductible": "string",
+                                    "co-insurance": "string",
+                                    "sum_insured": "string",
+                                    "coverage_highlights": ["string"]
+                                }
+                            }`
+                        },
+                        {
+                            role: "user",
+                            content: `Extrae la información de este texto: \n\n${text.substring(0, 15000)}`
+                        }
+                    ],
+                    response_format: { type: "json_object" }
+                })
 
-            if (hospitalData && hospitalData.length > 0) {
-                // Enrich each option with hospital details if they match
-                aiResult.options = aiResult.options.map((opt: any) => {
-                    const match = hospitalData.find(h =>
-                        opt.hospital_level?.toLowerCase().includes(h.hospital_level?.toLowerCase()) ||
-                        opt.plan?.toLowerCase().includes(h.plan_name?.toLowerCase())
-                    );
-                    if (match) {
-                        opt.main_hospitals = match.main_hospitals;
-                    }
-                    return opt;
-                });
-            }
-        }
+                const content = JSON.parse(response.choices[0].message.content || "{}")
 
-        return NextResponse.json(aiResult);
+                // 3. Guardar el Item Individual
+                await (supabase.from("quote_items") as any).insert({
+                    session_id: (session as any).id,
+                    insurer_name: content.insurer,
+                    parsed_data: content,
+                    premium_total: content.premium_total,
+                    currency: content.currency || "MXN"
+                })
 
+                return content
+            })
+        )
+
+        return NextResponse.json({ success: true, results, sessionId: (session as any).id })
     } catch (error: any) {
-        console.error("AI Quote Analyzer Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("Error parsing quote:", error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }

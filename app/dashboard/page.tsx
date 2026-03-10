@@ -1,12 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, FileText, DollarSign, Activity } from "lucide-react"
+import { Users, FileText, DollarSign, Activity, TrendingUp, ArrowUpRight, Plus, Sparkles, MessageSquare } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import RenewalAlerts from "@/components/dashboard/overview/renewal-alerts"
 import BranchDistribution from "@/components/dashboard/overview/branch-distribution"
 import CollectionTimeline from "@/components/dashboard/overview/collection-timeline"
 import OpportunityWidget from "@/components/dashboard/OpportunityWidget"
+import { OnboardingTour } from "@/components/dashboard/onboarding-tour"
+import CapatazStatusWidget from "@/components/dashboard/CapatazStatusWidget"
+import Link from "next/link"
 
 export default function DashboardPage() {
     const [stats, setStats] = useState({
@@ -21,12 +24,10 @@ export default function DashboardPage() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // 1. Get Clients Count
                 const { count: clientCount, error: clientError } = await supabase
                     .from('clients')
                     .select('*', { count: 'exact', head: true })
 
-                // 2. Get Policies with joined data
                 const { data: policies, error: policyError } = await supabase
                     .from('policies')
                     .select(`
@@ -57,14 +58,11 @@ export default function DashboardPage() {
                 if (policyError) throw policyError
 
                 const allPolicies = (policies as any[]) || []
-
-                // Calculate "Vigentes"
                 const today = new Date()
                 today.setHours(0, 0, 0, 0)
 
                 let activePoliciesCount = 0
                 let totalPremiumsCurrentMonth = 0
-
                 const currentMonth = today.getMonth()
                 const currentYear = today.getFullYear()
 
@@ -77,7 +75,6 @@ export default function DashboardPage() {
                         activePoliciesCount++
                     }
 
-                    // Sum premiums for policies starting THIS month
                     if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
                         totalPremiumsCurrentMonth += (Number(p.premium_net) || 0)
                     }
@@ -103,74 +100,109 @@ export default function DashboardPage() {
     }, [])
 
     return (
-        <div className="space-y-8 pb-10">
-            {/* Header Section */}
-            <div>
-                <h1 className="text-3xl font-bold text-slate-900">Resumen General</h1>
-                <p className="text-slate-500 mt-2">Bienvenido a la vista de inteligencia de tu portafolio.</p>
+        <div className="relative min-h-screen space-y-8 pb-32">
+            {/* Mesh Gradient Background (Subtle) */}
+            <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+                <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-emerald-500/5 rounded-full blur-[120px]"></div>
+                <div className="absolute top-[20%] -right-[10%] w-[30%] h-[50%] bg-blue-500/5 rounded-full blur-[120px]"></div>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                    { label: "Clientes Registrados", value: loading ? "..." : stats.clients.toLocaleString(), icon: Users, color: "bg-blue-500" },
-                    { label: "Pólizas Vigentes", value: loading ? "..." : stats.policies.toLocaleString(), icon: FileText, color: "bg-emerald-500" },
-                    { label: "Primas Nuevas (Mes)", value: loading ? "..." : `$${stats.premiums.toLocaleString()}`, icon: DollarSign, color: "bg-amber-500" },
-                    { label: "Siniestros Activos", value: "0", icon: Activity, color: "bg-rose-500" },
-                ].map((stat, i) => (
-                    <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                        <div className={`p-3 rounded-xl ${stat.color}/10`}>
-                            <stat.icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                        </div>
+            {/* Premium Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">En Conexión</span>
+                        <span className="text-slate-400 text-[10px font-medium underline decoration-slate-200 underline-offset-4">ID Agency: RB-2026-X</span>
                     </div>
-                ))}
-            </div>
-
-            {/* Business Intelligence Area */}
-            {loading ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-8 min-h-[400px] flex items-center justify-center">
-                        <div className="animate-pulse flex flex-col items-center">
-                            <div className="w-12 h-12 bg-slate-200 rounded-full mb-4"></div>
-                            <div className="h-4 bg-slate-200 rounded w-32 mb-2"></div>
-                            <div className="h-3 bg-slate-200 rounded w-24"></div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-slate-100 p-8 min-h-[400px] flex items-center justify-center">
-                        <div className="animate-pulse w-32 h-32 bg-slate-200 rounded-full"></div>
-                    </div>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Focus <span className="text-emerald-600">Center</span></h1>
+                    <p className="text-slate-500 font-medium">RB Proyectos: Inteligencia Artificial aplicada a tu Cartera.</p>
                 </div>
-            ) : (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start min-h-[400px]">
-                        {/* Inteligencia de Ventas (1 Columna - Nueva) */}
-                        <div className="lg:col-span-1 h-full order-last lg:order-first">
-                            <div className="bg-white/50 rounded-2xl p-1">
-                                <OpportunityWidget />
-                            </div>
-                        </div>
 
-                        {/* Alertas Tempranas (2 Columnas) */}
-                        <div className="lg:col-span-2 h-full">
+                <div className="flex items-center gap-3">
+                    <Link href="/dashboard/import" className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+                        <ArrowUpRight className="w-4 h-4" /> Importar SICAS
+                    </Link>
+                    <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95">
+                        <Plus className="w-4 h-4" /> Nueva Cotización
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Dashboard Layout */}
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+
+                {/* Left Column: Metrics & Main Stats */}
+                <div className="xl:col-span-3 space-y-8">
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[
+                            { label: "Clientes Activos", value: stats.clients, trend: "+12%", color: "text-blue-600", bg: "bg-blue-50" },
+                            { label: "Pólizas Vigentes", value: stats.policies, trend: "+5.3%", color: "text-emerald-600", bg: "bg-emerald-50" },
+                            { label: "Prima Nueva (Mes)", value: `$${stats.premiums.toLocaleString()}`, trend: "+24%", color: "text-amber-600", bg: "bg-amber-50" },
+                        ].map((stat, i) => (
+                            <div key={i} className="group bg-white/80 backdrop-blur-md p-8 rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all relative overflow-hidden">
+                                <div className={`absolute top-0 right-0 p-4 ${stat.color} opacity-10 group-hover:scale-110 transition-transform`}>
+                                    <TrendingUp className="w-12 h-12" />
+                                </div>
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">{stat.label}</p>
+                                <div className="flex items-end gap-3">
+                                    <p className="text-4xl font-black text-slate-900 tracking-tight">{loading ? "..." : stat.value}</p>
+                                    <div className={`flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-lg ${stat.bg} ${stat.color} mb-1.5 shadow-sm`}>
+                                        <TrendingUp className="w-3 h-3 mr-1" />
+                                        {stat.trend}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Alertas y Tendencias */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[450px]">
                             <RenewalAlerts policies={policiesData} />
                         </div>
-
-                        {/* Distribución (1 Columna) */}
-                        <div className="lg:col-span-1 h-full">
-                            <BranchDistribution policies={policiesData} />
+                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[450px]">
+                            <CollectionTimeline policies={policiesData} />
                         </div>
                     </div>
+                </div>
 
-                    {/* Agenda de Cobranza y Notificaciones */}
-                    <div>
-                        <CollectionTimeline policies={policiesData} />
+                {/* Right Column: AI Hub & Widgets */}
+                <div className="xl:col-span-1 space-y-8">
+                    {/* Capataz Hub (NUEVO) */}
+                    <CapatazStatusWidget />
+
+                    {/* Distribución de Cartera */}
+                    <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-bold text-slate-900">Ramos de Venta</h3>
+                            <button className="text-[10px] font-black uppercase text-emerald-600 hover:underline">Ver Todo</button>
+                        </div>
+                        <BranchDistribution policies={policiesData} />
+                    </div>
+
+                    {/* Sales Intelligence */}
+                    <div className="bg-slate-50 rounded-[2.5rem] p-1 border border-slate-200/50">
+                        <OpportunityWidget />
                     </div>
                 </div>
-            )}
+            </div>
+
+            {/* Modern Floating Action Bar */}
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-slate-900/90 backdrop-blur-xl rounded-full border border-slate-700 shadow-2xl z-50 animate-in slide-in-from-bottom-10 duration-1000">
+                <button className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-full text-xs font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-950/20 active:scale-95">
+                    <Sparkles className="w-4 h-4" /> Magic Creator
+                </button>
+                <div className="w-px h-6 bg-slate-700"></div>
+                <button className="p-3 hover:bg-slate-800 rounded-full text-slate-300 transition-colors">
+                    <MessageSquare className="w-5 h-5" />
+                </button>
+                <button className="p-3 hover:bg-slate-800 rounded-full text-slate-300 transition-colors">
+                    <Activity className="w-5 h-5" />
+                </button>
+            </div>
+
+            <OnboardingTour />
         </div>
     )
 }
