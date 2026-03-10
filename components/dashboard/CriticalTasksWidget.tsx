@@ -7,7 +7,9 @@ import {
     Clock,
     MessageSquare,
     RefreshCw,
-    ChevronRight
+    ChevronRight,
+    Mail,
+    Send
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCollectionMessage, getRenewalMessage, generateWhatsAppLink } from '@/lib/whatsapp-templates'
@@ -21,7 +23,15 @@ interface CriticalTask {
     dueDate: string
     clientName: string
     phone: string
-    policyData: any // Context for the message
+    email: string
+    clientId: string
+    policyId: string
+    installmentId?: string
+    policyData: any
+    lastNotified?: {
+        channel: string
+        at: string
+    }
 }
 
 export default function CriticalTasksWidget() {
@@ -78,6 +88,12 @@ export default function CriticalTasksWidget() {
                 .order('end_date', { ascending: true })
                 .limit(5)
 
+            // 3. Fetch Last Notifications
+            const { data: logs } = await (supabase
+                .from('notification_logs') as any)
+                .select('policy_id, installment_id, channel, created_at')
+                .order('created_at', { ascending: false })
+
             const combinedTasks: CriticalTask[] = []
 
             if (installments) {
@@ -85,6 +101,8 @@ export default function CriticalTasksWidget() {
                     const policy = inst.policies
                     const client = policy?.clients
                     if (!client) return
+
+                    const lastLog = logs?.find((l: any) => l.installment_id === inst.id)
 
                     combinedTasks.push({
                         id: inst.id,
@@ -95,7 +113,12 @@ export default function CriticalTasksWidget() {
                         dueDate: inst.due_date,
                         clientName: `${client.first_name} ${client.last_name}`,
                         phone: client.phone || '',
-                        policyData: { ...policy, ...inst }
+                        email: client.email || '',
+                        clientId: client.id,
+                        policyId: policy.id,
+                        installmentId: inst.id,
+                        policyData: { ...policy, ...inst },
+                        lastNotified: lastLog ? { channel: lastLog.channel, at: lastLog.created_at } : undefined
                     })
                 })
             }
@@ -104,6 +127,8 @@ export default function CriticalTasksWidget() {
                 policies.forEach((pol: any) => {
                     const client = pol.clients
                     if (!client) return
+
+                    const lastLog = logs?.find((l: any) => l.policy_id === pol.id && !l.installment_id)
 
                     combinedTasks.push({
                         id: pol.id,
@@ -114,7 +139,11 @@ export default function CriticalTasksWidget() {
                         dueDate: pol.end_date,
                         clientName: `${client.first_name} ${client.last_name}`,
                         phone: client.phone || '',
-                        policyData: pol
+                        email: client.email || '',
+                        clientId: client.id,
+                        policyId: pol.id,
+                        policyData: pol,
+                        lastNotified: lastLog ? { channel: lastLog.channel, at: lastLog.created_at } : undefined
                     })
                 })
             }
@@ -127,15 +156,31 @@ export default function CriticalTasksWidget() {
         }
     }
 
-    const handleSendWhatsApp = (task: CriticalTask) => {
-        let message = ''
+    const logNotification = async (task: CriticalTask, channel: string) => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        await (supabase.from('notification_logs') as any).insert({
+            user_id: user.id,
+            client_id: task.clientId,
+            policy_id: task.policyId,
+            installment_id: task.installmentId,
+            channel,
+            notification_type: task.type
+        })
+
+        // Refresh to show status
+        fetchCriticalTasks()
+    }
+
+    const getMessage = (task: CriticalTask) => {
         if (task.type === 'payment') {
             const d = task.policyData
             const today = new Date()
             const dueDate = new Date(task.dueDate)
             const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
-            message = getCollectionMessage(
+            return getCollectionMessage(
                 task.clientName,
                 d.branch_id || 'Seguros',
                 d.insurer_id || 'Aseguradora',
@@ -143,7 +188,7 @@ export default function CriticalTasksWidget() {
                 task.amount || 0,
                 d.payment_method || 'Contado',
                 diffDays,
-                new Date().toISOString(), // Simulating start
+                new Date().toISOString(),
                 task.dueDate,
                 '',
                 '',
@@ -151,7 +196,7 @@ export default function CriticalTasksWidget() {
             )
         } else {
             const d = task.policyData
-            message = getRenewalMessage(
+            return getRenewalMessage(
                 task.clientName,
                 d.branch_id || 'Seguros',
                 d.insurer_id || 'Aseguradora',
@@ -160,9 +205,29 @@ export default function CriticalTasksWidget() {
                 task.amount
             )
         }
+    }
 
+    const handleWhatsApp = (task: CriticalTask) => {
+        const message = getMessage(task)
         const link = generateWhatsAppLink(task.phone, message)
         window.open(link, '_blank')
+        logNotification(task, 'whatsapp')
+    }
+
+    const handleEmail = (task: CriticalTask) => {
+        const message = getMessage(task)
+        const subject = task.type === 'payment' ? 'Recordatorio de Pago' : 'Aviso de Renovación'
+        const mailto = `mailto:${task.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
+        window.location.href = mailto
+        logNotification(task, 'email')
+    }
+
+    const handleTelegram = (task: CriticalTask) => {
+        const message = getMessage(task)
+        // Telegram share link
+        const link = `https://t.me/share/url?url=${encodeURIComponent('RB Proyectos')}&text=${encodeURIComponent(message)}`
+        window.open(link, '_blank')
+        logNotification(task, 'telegram')
     }
 
     return (
@@ -227,24 +292,46 @@ export default function CriticalTasksWidget() {
                                                 {task.title}
                                             </h4>
                                             <p className="text-xs text-slate-400">
-                                                {task.subtitle} • <span className="text-amber-500/80 font-medium">Vence: {task.dueDate}</span>
+                                                {task.subtitle} • <span className="text-amber-500/80 font-medium whitespace-nowrap">Vence: {task.dueDate}</span>
                                             </p>
+                                            {task.lastNotified && (
+                                                <p className="text-[10px] text-emerald-500/80 font-bold uppercase mt-1">
+                                                    ✓ Avisado por {task.lastNotified.channel} ({new Date(task.lastNotified.at).toLocaleDateString()})
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        {task.amount && (
-                                            <div className="hidden sm:block text-right mr-4">
+                                        {typeof task.amount === 'number' && (
+                                            <div className="hidden md:block text-right mr-4">
                                                 <p className="text-sm font-bold text-white">${task.amount.toLocaleString()}</p>
-                                                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total</p>
+                                                <p className="text-[10px] text-slate-500 uppercase font-bold">Total</p>
                                             </div>
                                         )}
-                                        <button
-                                            onClick={() => handleSendWhatsApp(task)}
-                                            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-emerald-900/20"
-                                        >
-                                            <MessageSquare className="w-4 h-4" />
-                                            <span className="hidden lg:inline">Avisar</span>
-                                        </button>
+
+                                        <div className="flex items-center space-x-1.5">
+                                            <button
+                                                onClick={() => handleWhatsApp(task)}
+                                                className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all shadow-lg shadow-emerald-900/20 active:scale-95"
+                                                title="WhatsApp"
+                                            >
+                                                <MessageSquare className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleEmail(task)}
+                                                className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-95"
+                                                title="Email"
+                                            >
+                                                <Mail className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleTelegram(task)}
+                                                className="p-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl transition-all shadow-lg shadow-sky-900/20 active:scale-95"
+                                                title="Telegram"
+                                            >
+                                                <Send className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </motion.div>
                             ))}
