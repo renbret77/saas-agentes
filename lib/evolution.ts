@@ -93,6 +93,26 @@ export class EvolutionService {
     async getInstanceState(instanceName: string) {
         return this.request(`/instance/connectionState/${instanceName}`);
     }
+
+    /**
+     * Download media from Evolution
+     */
+    async downloadMedia(instanceName: string, message: any) {
+        return this.request(`/media/download/${instanceName}`, 'POST', {
+            message
+        });
+    }
+
+    /**
+     * Send a message back via WhatsApp
+     */
+    async sendMessage(instanceName: string, number: string, text: string) {
+        return this.request(`/message/sendText/${instanceName}`, 'POST', {
+            number,
+            text,
+            linkPreview: true
+        });
+    }
 }
 
 export const evolutionService = new EvolutionService();
