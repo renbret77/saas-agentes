@@ -15,8 +15,10 @@ export default function NewPolicyPage() {
     const [isParsingPolicy, setIsParsingPolicy] = useState(false)
     const [policyFileUrl, setPolicyFileUrl] = useState<string | null>(null)
     const [parsedClientName, setParsedClientName] = useState<string | null>(null)
+    const [parsedClientRFC, setParsedClientRFC] = useState<string | null>(null)
     const [parsedAgentCode, setParsedAgentCode] = useState<string | null>(null)
     const [parsedAgentName, setParsedAgentName] = useState<string | null>(null)
+    const [parsedFirstInstallment, setParsedFirstInstallment] = useState<number | null>(null)
     const [showAgentRegistration, setShowAgentRegistration] = useState(false)
     const [newAgentData, setNewAgentData] = useState({
         code: '',
@@ -248,10 +250,16 @@ export default function NewPolicyPage() {
                 surcharge_amount: data.surcharge_amount ? data.surcharge_amount.toString() : prev.surcharge_amount,
                 vat_amount: data.vat_amount ? data.vat_amount.toString() : prev.vat_amount,
                 premium_total: data.premium_total ? data.premium_total.toString() : prev.premium_total,
+                sub_branch: data.sub_ramo || prev.sub_branch,
+                description: data.asset_description || prev.description,
                 client_id: updatedClientId,
                 insurer_id: updatedInsurerId,
                 agent_code_id: updatedAgentCodeId
             }))
+
+            if (data.rfc) setParsedClientRFC(data.rfc)
+            if (data.first_installment_extract) setParsedFirstInstallment(parseNum(data.first_installment_extract))
+
 
             // Notificamos al usuario del éxito
             if (data.client_name && !formData.client_id) {
@@ -413,7 +421,8 @@ export default function NewPolicyPage() {
             extraPremium: parseNum(formData.extra_premium),
             totalInstallments: count,
             startDate: new Date(formData.start_date || new Date()),
-            config: getInsurerConfig(formData.insurer_id)
+            config: getInsurerConfig(formData.insurer_id),
+            firstInstallmentForced: parsedFirstInstallment || undefined
         }
 
         const newInstallments = calculateInstallments(input)

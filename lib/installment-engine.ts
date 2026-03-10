@@ -10,6 +10,7 @@ export interface InstallmentInput {
     totalInstallments: number;
     startDate: Date;
     config?: InsurerConfig;
+    firstInstallmentForced?: number; // New: To match exactly what the IA extracted from carátula
 }
 
 export interface Installment {
@@ -26,38 +27,56 @@ export interface Installment {
 export function calculateInstallments(input: InstallmentInput): Installment[] {
     const {
         premiumNet, policyFee, surchargeAmount, vatAmount,
-        discountAmount, extraPremium, totalInstallments, startDate, config
+        discountAmount, extraPremium, totalInstallments, startDate, config,
+        firstInstallmentForced
     } = input;
 
     const installments: Installment[] = [];
     const rule = config?.installmentRule || 'standard';
 
-    // Base calculation
+    // Total Amount to be distributed
+    const totalPremiumToPay = (premiumNet - discountAmount + extraPremium) + policyFee + surchargeAmount + vatAmount;
+
     for (let i = 1; i <= totalInstallments; i++) {
-        let net = (premiumNet - discountAmount + extraPremium) / totalInstallments;
+        let net = 0;
         let fee = 0;
         let surch = 0;
-        let vat = vatAmount / totalInstallments;
+        let vat = 0;
+        let total = 0;
 
-        // Rule: Standard - Direito and Surcharges in first payment
-        if (rule === 'standard') {
-            fee = i === 1 ? policyFee : 0;
-            surch = i === 1 ? surchargeAmount : 0;
+        // If we have a forced first installment (from IA EXTRACTION)
+        if (i === 1 && firstInstallmentForced && firstInstallmentForced > 0) {
+            total = firstInstallmentForced;
+            // For the first one, we just set the total and estimate components 
+            // In a real SICAS killer, we'd extract every row, but for now this fixes the "overlap" UX
+            fee = policyFee;
+            surch = rule === 'prorated_surcharge' ? (surchargeAmount / totalInstallments) : surchargeAmount;
+            vat = vatAmount / totalInstallments; // Simple estimate
+            net = total - fee - surch - vat;
         }
-        // Rule: First Payment Heavy (Chubb) - Like standard but can be extended if needed
-        else if (rule === 'first_payment_heavy') {
-            fee = i === 1 ? policyFee : 0;
-            surch = i === 1 ? surchargeAmount : 0;
-            // Note: User mentioned Chubb increases the 1st payment even more. 
-            // For now, we follow the "Derecho in 1st" which is already "heavy".
+        else if (i > 1 && firstInstallmentForced && firstInstallmentForced > 0) {
+            // Distribute the REMAINING balance among the rest
+            const remaining = totalPremiumToPay - firstInstallmentForced;
+            total = remaining / (totalInstallments - 1);
+            vat = vatAmount / totalInstallments;
+            fee = 0;
+            surch = rule === 'prorated_surcharge' ? (surchargeAmount / totalInstallments) : 0;
+            net = total - fee - surch - vat;
         }
-        // Rule: Prorated Surcharge (Monterrey) - Surcharge divided among all
-        else if (rule === 'prorated_surcharge') {
-            fee = i === 1 ? policyFee : 0;
-            surch = surchargeAmount / totalInstallments;
-        }
+        else {
+            // Standard dynamic logic
+            net = (premiumNet - discountAmount + extraPremium) / totalInstallments;
+            vat = vatAmount / totalInstallments;
 
-        const total = net + fee + surch + vat;
+            if (rule === 'standard' || rule === 'first_payment_heavy') {
+                fee = i === 1 ? policyFee : 0;
+                surch = i === 1 ? surchargeAmount : 0;
+            } else if (rule === 'prorated_surcharge') {
+                fee = i === 1 ? policyFee : 0;
+                surch = surchargeAmount / totalInstallments;
+            }
+            total = net + fee + surch + vat;
+        }
 
         const dueDate = new Date(startDate);
         dueDate.setMonth(startDate.getMonth() + (i - 1) * (12 / totalInstallments));
