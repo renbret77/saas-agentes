@@ -46,7 +46,9 @@ export default function LoginPage() {
                     .eq('id', authData.user.id)
                     .single()
 
-                if ((profile as any)?.role !== 'superadmin') {
+                const isPruebaAccount = authData.user.email?.match(/^prueba([1-9]|1[0-9]|20)@admin\.com$/);
+
+                if ((profile as any)?.role !== 'superadmin' && !isPruebaAccount) {
                     // Device Fingerprinting Logic
                     let deviceId = localStorage.getItem('sas_device_id')
                     if (!deviceId) {
@@ -207,6 +209,13 @@ export default function LoginPage() {
                                 </>
                             )}
                         </motion.button>
+
+                        <div className="mt-6 text-center">
+                            <span className="text-slate-500 text-sm">¿Eres nuevo en la plataforma? </span>
+                            <a href="/register" className="text-emerald-600 font-bold hover:underline text-sm">
+                                Registrarse Gratis
+                            </a>
+                        </div>
                     </motion.form>
                 </div>
             </div>
