@@ -39,25 +39,34 @@ export default function LoginPage() {
             }
 
             if (authData.user) {
-                // Device Fingerprinting Logic
-                let deviceId = localStorage.getItem('sas_device_id')
-                if (!deviceId) {
-                    deviceId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
-                    localStorage.setItem('sas_device_id', deviceId)
-                }
+                // Check if the user is a superadmin to exempt them
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', authData.user.id)
+                    .single()
 
-                // Call a secure RPC to log the device and assert Free tier limits
-                const { data: isAllowed, error: rpcError } = await (supabase.rpc as any)('assert_device_limit', {
-                    p_user_id: authData.user.id,
-                    p_device_id: deviceId
-                })
+                if ((profile as any)?.role !== 'superadmin') {
+                    // Device Fingerprinting Logic
+                    let deviceId = localStorage.getItem('sas_device_id')
+                    if (!deviceId) {
+                        deviceId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+                        localStorage.setItem('sas_device_id', deviceId)
+                    }
 
-                if (rpcError || !isAllowed) {
-                    // Sign them back out if they are blocked by the fingerprint limit
-                    await supabase.auth.signOut()
-                    setBlockMessage("Hemos detectado actividad inusual: múltiples cuentas gratuitas intentando acceder desde este mismo dispositivo físico. Por regulaciones de privacidad y protección de cartera (CNSF), el acceso ha sido bloqueado temporalmente. Si usted es una Promotoría o Agencia con múltiples agentes, por favor actualice a la Licencia Pro.")
-                    setIsLoading(false)
-                    return
+                    // Call a secure RPC to log the device and assert Free tier limits
+                    const { data: isAllowed, error: rpcError } = await (supabase.rpc as any)('assert_device_limit', {
+                        p_user_id: authData.user.id,
+                        p_device_id: deviceId
+                    })
+
+                    if (rpcError || !isAllowed) {
+                        // Sign them back out if they are blocked by the fingerprint limit
+                        await supabase.auth.signOut()
+                        setBlockMessage("Hemos detectado actividad inusual: múltiples cuentas gratuitas intentando acceder desde este mismo dispositivo físico. Por regulaciones de privacidad y protección de cartera (CNSF), el acceso ha sido bloqueado temporalmente. Si usted es una Promotoría o Agencia con múltiples agentes, por favor actualice a la Licencia Pro.")
+                        setIsLoading(false)
+                        return
+                    }
                 }
 
                 router.push('/dashboard')
