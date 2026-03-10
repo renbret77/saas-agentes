@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { IMPORT_SCHEMAS } from "@/lib/import-schemas"
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
 export async function POST(req: NextRequest) {
     try {
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
         const { importType, headers, sampleData } = await req.json()
 
         if (!importType || !headers || !sampleData) {

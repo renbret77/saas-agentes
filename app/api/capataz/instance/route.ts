@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { evolutionService } from "@/lib/evolution";
-import { createClient } from "@supabase/supabase-js";
-
-// This would typically come from your auth session
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(req: NextRequest) {
     try {

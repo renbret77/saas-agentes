@@ -1,10 +1,11 @@
 import OpenAI from "openai";
 import { Readable } from "stream";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
     try {
+        const openai = getOpenAI();
         const response = await openai.audio.transcriptions.create({
             file: await OpenAI.toFile(audioBuffer, 'voice.ogg', { type: 'audio/ogg' }),
             model: "whisper-1",
@@ -17,6 +18,7 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
 }
 
 export async function processVoiceCommand(text: string) {
+    const openai = getOpenAI();
     const prompt = `
     Eres Capataz, el asistente inteligente de una agencia de seguros (RB Proyectos).
     Tu tarea es analizar esta transcripción de voz de un agente y extraer la intención.
@@ -47,6 +49,7 @@ export async function processVoiceCommand(text: string) {
 }
 
 export async function generateSalesSnap(pdfContent: string): Promise<string> {
+    const openai = getOpenAI();
     const prompt = `
     Analiza esta información técnica de una póliza de seguros y crea un "Sales Snap" de alto impacto.
     
