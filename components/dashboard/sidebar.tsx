@@ -61,7 +61,8 @@ export function Sidebar() {
         "/dashboard/cross-sell",
         "/dashboard/loyalty",
         "/dashboard/reports",
-        "/dashboard/claims"
+        "/dashboard/claims",
+        "/dashboard/quotes"
     ]
 
     useEffect(() => {

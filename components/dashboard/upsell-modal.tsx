@@ -32,6 +32,13 @@ const FEATURE_INFO: Record<string, { title: string, desc: string, icon: any, col
         icon: ShieldAlert,
         color: "text-amber-500",
         videoUrl: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80" // Placeholder
+    },
+    "/dashboard/quotes": {
+        title: "Cotizador Múltiple con IA",
+        desc: "¿Manejas varias aseguradoras? Sube tus PDF's y nuestra IA extraerá las primas y coberturas para crear una presentación comparativa hermosa, persuasiva y profesional. Ahorra horas de captura y cierra más ventas diciendo 'Wow'.",
+        icon: Sparkles,
+        color: "text-indigo-500",
+        videoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80" // Placeholder
     }
 }
 
@@ -122,11 +129,11 @@ export function UpsellModal({ isOpen, onClose, featureRoute }: UpsellModalProps)
                                 <h5 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
                                     <Zap className="w-4 h-4 text-amber-500" /> Beneficios de la Licencia PRO
                                 </h5>
-                                <ul className="space-y-2 text-sm text-slate-600">
-                                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Acceso a herramientas de Inteligencia Artificial.</li>
-                                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Asistentes de oficina ilimitados conectables.</li>
-                                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> WhatsApp bot automatizado (Capataz) habilitado.</li>
-                                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full text-rose-500 font-bold">Sin límites forzosos ("Hard limits") de 20 clientes.</div></li>
+                                <ul className="space-y-3 text-sm text-slate-600 mt-4">
+                                    <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-emerald-500 shrink-0" /> Acceso a herramientas de Inteligencia Artificial.</li>
+                                    <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-emerald-500 shrink-0" /> Asistentes de oficina ilimitados conectables.</li>
+                                    <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-emerald-500 shrink-0" /> WhatsApp bot automatizado (Capataz) habilitado.</li>
+                                    <li className="flex items-start gap-2"><div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-rose-500 shrink-0" /><span className="text-rose-600 font-bold leading-tight">Sin límites forzosos ("Hard limits") de 20 clientes o pólizas.</span></li>
                                 </ul>
                             </div>
 
