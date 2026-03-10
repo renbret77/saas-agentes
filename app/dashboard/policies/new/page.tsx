@@ -170,61 +170,54 @@ export default function NewPolicyPage() {
                 setPolicyFileUrl(publicUrl)
             }
 
-            // Mapeo automático de resultados
-            setFormData(prev => {
-                const updated = { ...prev }
+            // 173: Mapeo automático de resultados
+            let updatedClientId = formData.client_id;
+            let updatedInsurerId = formData.insurer_id;
+            let updatedAgentCodeId = formData.agent_code_id;
+            let finalCodes: any[] = agentCodes;
 
-                if (data.policy_number) updated.policy_number = data.policy_number
-                if (data.start_date) updated.start_date = data.start_date
-                if (data.end_date) updated.end_date = data.end_date
-                if (data.currency) updated.currency = data.currency
-                if (data.payment_method) updated.payment_method = data.payment_method
-                if (data.premium_net) updated.premium_net = data.premium_net.toString()
-                if (data.policy_fee) updated.policy_fee = data.policy_fee.toString()
-                if (data.surcharge_amount) updated.surcharge_amount = data.surcharge_amount.toString()
-                if (data.vat_amount) updated.vat_amount = data.vat_amount.toString()
-                if (data.premium_total) updated.premium_total = data.premium_total.toString()
-
-                // 3. Intentar empatar cliente por nombre (v72)
-                if (data.client_name) {
-                    setParsedClientName(data.client_name)
-                    const foundClient = clients.find(c => {
-                        const fullName = `${c.first_name} ${c.last_name}`.toLowerCase()
-                        return fullName.includes(data.client_name.toLowerCase()) ||
-                            data.client_name.toLowerCase().includes(fullName)
-                    })
-                    if (foundClient) {
-                        updated.client_id = foundClient.id
-                    }
+            // 3. Intentar empatar cliente por nombre (v72)
+            if (data.client_name) {
+                setParsedClientName(data.client_name)
+                const foundClient = clients.find(c => {
+                    const fullName = `${c.first_name} ${c.last_name}`.toLowerCase()
+                    return fullName.includes(data.client_name.toLowerCase()) ||
+                        data.client_name.toLowerCase().includes(fullName)
+                })
+                if (foundClient) {
+                    updatedClientId = foundClient.id
                 }
+            }
 
-                // 4. Intentar empatar aseguradora si viene en el texto
-                if (data.insurer_name && insurers.length > 0) {
-                    const foundInsurer = insurers.find(i =>
-                        i.name.toLowerCase().includes(data.insurer_name.toLowerCase()) ||
-                        data.insurer_name.toLowerCase().includes(i.name.toLowerCase()) ||
-                        (i.alias && data.insurer_name.toLowerCase().includes(i.alias.toLowerCase()))
-                    )
-                    if (foundInsurer) {
-                        updated.insurer_id = foundInsurer.id
-                        // Cargar claves de la aseguradora encontrada
-                        const { data: codes } = await supabase
-                            .from('agent_codes')
-                            .select('id, code, description')
-                            .eq('insurer_id', foundInsurer.id)
+            // 4. Intentar empatar aseguradora si viene en el texto
+            if (data.insurer_name && insurers.length > 0) {
+                const foundInsurer = insurers.find(i =>
+                    i.name.toLowerCase().includes(data.insurer_name.toLowerCase()) ||
+                    data.insurer_name.toLowerCase().includes(i.name.toLowerCase()) ||
+                    (i.alias && data.insurer_name.toLowerCase().includes(i.alias.toLowerCase()))
+                )
+                if (foundInsurer) {
+                    updatedInsurerId = foundInsurer.id
+                    // Cargar claves de la aseguradora encontrada (v74 Fix Build)
+                    const { data: codes } = await supabase
+                        .from('agent_codes')
+                        .select('id, code, description')
+                        .eq('insurer_id', foundInsurer.id)
 
-                        setAgentCodes(codes || [])
+                    if (codes) {
+                        finalCodes = codes;
+                        setAgentCodes(codes)
 
                         // 5. Intentar empatar clave de agente (v73)
                         if (data.agent_code) {
                             setParsedAgentCode(data.agent_code)
                             setParsedAgentName(data.agent_name || null)
-                            const foundCode = (codes || []).find(c =>
+                            const foundCode = codes.find(c =>
                                 c.code.toLowerCase().includes(data.agent_code.toLowerCase()) ||
                                 data.agent_code.toLowerCase().includes(c.code.toLowerCase())
                             )
                             if (foundCode) {
-                                updated.agent_code_id = foundCode.id
+                                updatedAgentCodeId = foundCode.id
                             } else {
                                 // No existe, preparar para pre-captura
                                 setNewAgentData({
@@ -237,9 +230,24 @@ export default function NewPolicyPage() {
                         }
                     }
                 }
+            }
 
-                return updated
-            })
+            setFormData(prev => ({
+                ...prev,
+                policy_number: data.policy_number || prev.policy_number,
+                start_date: data.start_date || prev.start_date,
+                end_date: data.end_date || prev.end_date,
+                currency: data.currency || prev.currency,
+                payment_method: data.payment_method || prev.payment_method,
+                premium_net: data.premium_net ? data.premium_net.toString() : prev.premium_net,
+                policy_fee: data.policy_fee ? data.policy_fee.toString() : prev.policy_fee,
+                surcharge_amount: data.surcharge_amount ? data.surcharge_amount.toString() : prev.surcharge_amount,
+                vat_amount: data.vat_amount ? data.vat_amount.toString() : prev.vat_amount,
+                premium_total: data.premium_total ? data.premium_total.toString() : prev.premium_total,
+                client_id: updatedClientId,
+                insurer_id: updatedInsurerId,
+                agent_code_id: updatedAgentCodeId
+            }))
 
             // Notificamos al usuario del éxito
             if (data.client_name && !formData.client_id) {
