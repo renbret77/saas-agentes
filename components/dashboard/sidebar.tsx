@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { supabase } from '@/lib/supabase'
 import {
@@ -48,11 +48,13 @@ const menuItems = [
 
 export function Sidebar() {
     const pathname = usePathname()
+    const router = useRouter()
     const [isMobileOpen, setIsMobileOpen] = useState(false)
     const [credits, setCredits] = useState({ total: 0, used: 0 })
     const [userRole, setUserRole] = useState<string>("agent")
     const [licenseType, setLicenseType] = useState<string>("free")
     const [permissions, setPermissions] = useState<any>(null)
+    const [userName, setUserName] = useState<string>("Usuario")
 
     const [upsellModalOpen, setUpsellModalOpen] = useState(false)
     const [upsellRoute, setUpsellRoute] = useState("")
@@ -89,6 +91,7 @@ export function Sidebar() {
         const { data: profile } = await supabase
             .from('profiles')
             .select(`
+                full_name,
                 role,
                 agencies ( license_type )
             `)
@@ -97,6 +100,7 @@ export function Sidebar() {
 
         if (profile) {
             setUserRole((profile as any).role)
+            setUserName((profile as any).full_name || user.email?.split('@')[0] || "Usuario")
             setLicenseType((profile as any).agencies?.license_type || 'free')
             if ((profile as any).role === 'assistant') {
                 const { data: perms } = await supabase.from('assistant_permissions').select('*').eq('assistant_id', user.id).single()
@@ -130,6 +134,12 @@ export function Sidebar() {
             setUpsellRoute(href)
             setUpsellModalOpen(true)
         }
+    }
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut()
+        router.push('/login')
+        router.refresh()
     }
 
     const creditsRemaining = credits.total - credits.used
@@ -274,14 +284,14 @@ export function Sidebar() {
                     </div>
 
                     <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-500 flex items-center justify-center text-sm font-bold">
-                            RB
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-500 flex items-center justify-center text-sm font-bold uppercase">
+                            {userName.substring(0, 2)}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">Rene Breton</p>
-                            <p className="text-xs text-slate-400 truncate">Admin</p>
+                            <p className="text-sm font-medium text-white truncate">{userName}</p>
+                            <p className="text-xs text-slate-400 truncate capitalize">{userRole}</p>
                         </div>
-                        <button className="text-slate-400 hover:text-white transition-colors">
+                        <button onClick={handleLogout} className="text-slate-400 hover:text-rose-400 transition-colors">
                             <LogOut className="h-5 w-5" />
                         </button>
                     </div>
