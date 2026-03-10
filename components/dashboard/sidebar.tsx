@@ -22,7 +22,8 @@ import {
     Sparkles,
     Coins,
     Zap,
-    Gift
+    Gift,
+    Terminal
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -39,6 +40,7 @@ const menuItems = [
     { icon: ShieldAlert, label: "Siniestros", href: "/dashboard/claims" },
     { icon: Shield, label: "Aseguradoras", href: "/dashboard/insurers" },
     { icon: RefreshCw, label: "Migración SICAS", href: "/dashboard/import" },
+    { icon: Terminal, label: "Centro de Comando", href: "/dashboard/admin" },
     { icon: CreditCard, label: "Cobranza", href: "/dashboard/billing" },
     { icon: Settings, label: "Configuración", href: "/dashboard/settings" },
 ]
