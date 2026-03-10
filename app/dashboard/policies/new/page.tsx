@@ -139,9 +139,13 @@ export default function NewPolicyPage() {
         uploadFormData.append('file', file)
 
         try {
-            // 1. OCR Parsing
+            // 1. OCR Parsing (v75: Pass Auth Token)
+            const { data: { session } } = await supabase.auth.getSession()
             const res = await fetch('/api/policies/parse', {
                 method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: uploadFormData
             })
 

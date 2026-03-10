@@ -24,6 +24,20 @@ export async function POST(req: NextRequest) {
         }
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // 0. Autenticación (v75)
+        const authHeader = req.headers.get("Authorization");
+        const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
+        if (!token) {
+            return NextResponse.json({ error: "No autorizado (Falta Token)" }, { status: 401 });
+        }
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) {
+            return NextResponse.json({ error: "No autorizado (Token Inválido)" }, { status: 401 });
+        }
+
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
             model: "gemini-1.5-flash",
@@ -36,7 +50,8 @@ export async function POST(req: NextRequest) {
         const { data: creditSpent, error: creditError } = await (supabase.rpc('spend_ai_credits', {
             p_action_type: 'parse_policy_v2',
             p_cost: 2,
-            p_metadata: { file_name: file.name }
+            p_metadata: { file_name: file.name },
+            p_user_id: user.id // Pass the explicitly identified user
         }) as any);
 
         if (creditError || !creditSpent) {
