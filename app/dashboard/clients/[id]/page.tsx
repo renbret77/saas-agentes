@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Loader2, User, Briefcase, Phone, FileText, Users, Plus, Trash2, MapPin, BadgeCheck, Mail, MessageSquare, BellRing } from "lucide-react"
+import { ArrowLeft, Save, Loader2, User, Briefcase, Phone, FileText, Users, Plus, Trash2, MapPin, BadgeCheck, Mail, MessageSquare, BellRing, Shield, CreditCard, ChevronRight, CheckCircle2, AlertCircle, Clock } from "lucide-react"
 import Link from "next/link"
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
@@ -24,6 +24,8 @@ const TABS = [
     { id: 'identificacion', label: 'Identificación', icon: BadgeCheck },
     { id: 'contactos', label: 'Relaciones (Familia/Socios)', icon: Users },
     { id: 'comunicaciones', label: 'Comunicaciones', icon: MessageSquare },
+    { id: 'polizas', label: 'Pólizas', icon: Shield },
+    { id: 'cobranza', label: 'Cobranza', icon: CreditCard },
 ]
 
 export default function EditClientPage(props: { params: Promise<{ id: string }> }) {
@@ -61,6 +63,11 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         identifications: []
     })
 
+    const [clientPolicies, setClientPolicies] = useState<any[]>([])
+    const [policyStats, setPolicyStats] = useState({ active: 0, pending: 0, total: 0 })
+    const [collectionData, setCollectionData] = useState<any[]>([])
+    const [policyFilter, setPolicyFilter] = useState<'all' | 'active' | 'renewal' | 'expired'>('all')
+
     useEffect(() => {
         const fetchClient = async () => {
             try {
@@ -87,6 +94,9 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                         mobile_phone: ensureE164(clientData.mobile_phone),
                         work_phone: ensureE164(clientData.work_phone)
                     })
+
+                    // Fetch Policies and Collection (v24)
+                    fetchClientPolicies(params.id)
                 }
             } catch (error) {
                 console.error('Error fetching client:', error)
@@ -94,6 +104,36 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                 router.push('/dashboard/clients')
             } finally {
                 setLoading(false)
+            }
+        }
+
+        const fetchClientPolicies = async (clientId: string) => {
+            const { data: policies } = await supabase
+                .from('policies')
+                .select('*, insurers(name, alias), insurance_lines(name)')
+                .eq('client_id', clientId)
+                .order('end_date', { ascending: false })
+
+            if (policies) {
+                setClientPolicies(policies)
+                const active = policies.filter(p => p.status === 'Vigente').length
+                setPolicyStats({
+                    active,
+                    pending: policies.length - active,
+                    total: policies.length
+                })
+
+                // Fetch installments for collection report
+                const policyIds = policies.map(p => p.id)
+                if (policyIds.length > 0) {
+                    const { data: installments } = await supabase
+                        .from('policy_installments')
+                        .select('*, policies(policy_number, insurers(alias, name))')
+                        .in('policy_id', policyIds)
+                        .order('due_date', { ascending: true })
+
+                    setCollectionData(installments || [])
+                }
             }
         }
 
@@ -790,7 +830,6 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                         </div>
                     </div>
                 )}
-
                 {/* 4. COMUNICACIONES & NOTIFICACIONES */}
                 {activeTab === 'comunicaciones' && (
                     <div className="space-y-8 animate-in fade-in duration-300">
@@ -834,7 +873,9 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                     />
                                     <p className="text-[10px] text-slate-400 italic ml-1">* Canal alternativo para notificaciones premium.</p>
                                 </div>
+                            </div>
 
+                            <div className="space-y-6">
                                 <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                     <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                                         <BellRing className="w-4 h-4 text-emerald-500" /> Preferencias de Envío
@@ -848,41 +889,9 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                         <input
                                             type="checkbox"
                                             className="w-5 h-5 rounded-md border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                                            checked={true} // Por ahora harcodeado como default, o usar un campo meta
-                                        />
-                                    </label>
-
-                                    <label className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-100 transition-all">
-                                        <div className="space-y-0.5">
-                                            <p className="text-sm font-bold text-slate-700">Compendio por Email</p>
-                                            <p className="text-[11px] text-slate-500">Enviar pólizas y recibos al correo principal.</p>
-                                        </div>
-                                        <input
-                                            type="checkbox"
-                                            className="w-5 h-5 rounded-md border-slate-300 text-emerald-600 focus:ring-emerald-500"
                                             checked={true}
                                         />
                                     </label>
-                                </div>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div className="p-5 bg-slate-900 rounded-2xl text-white shadow-xl">
-                                    <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4">Estado del Cliente</h4>
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                                            <span className="text-xs text-slate-400">RFC</span>
-                                            <span className="text-sm font-mono font-bold text-emerald-300">{formData.rfc || 'PENDIENTE'}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                                            <span className="text-xs text-slate-400">Régimen Fiscal</span>
-                                            <span className="text-xs font-bold">{formData.fiscal_regime || 'POR DEFINIR'}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs text-slate-400">Nivel de Confianza</span>
-                                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-bold">PLATINUM</span>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <div className="p-5 border border-dashed border-slate-200 rounded-2xl space-y-2">
@@ -899,6 +908,168 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                     </div>
                 )}
 
+                {/* 5. HISTORIAL DE PÓLIZAS (v24) */}
+                {activeTab === 'polizas' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-900">Historial de Pólizas</h3>
+                                <p className="text-sm text-slate-500">Consulta y gestiona todos los seguros contratados.</p>
+                            </div>
+                            <div className="flex gap-2">
+                                {(['all', 'active', 'renewal'] as const).map(f => (
+                                    <button
+                                        key={f}
+                                        type="button"
+                                        onClick={() => setPolicyFilter(f)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${policyFilter === f ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+                                    >
+                                        {f === 'all' ? 'Todas' : f === 'active' ? 'Vigentes' : 'Renovaciones'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            {clientPolicies
+                                .filter(p => {
+                                    if (policyFilter === 'active') return p.status === 'Vigente';
+                                    if (policyFilter === 'renewal') {
+                                        const daysLeft = Math.ceil((new Date(p.end_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                                        return daysLeft <= 30 && daysLeft > 0;
+                                    }
+                                    return true;
+                                })
+                                .map(policy => (
+                                    <Link
+                                        key={policy.id}
+                                        href={`/dashboard/policies/${policy.id}`}
+                                        className="group bg-white p-5 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 transition-all flex items-center justify-between"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                                                <Shield className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-slate-900">{policy.insurers?.alias || policy.insurers?.name}</span>
+                                                    <span className="px-2 py-0.5 bg-slate-100 text-[10px] font-black text-slate-500 rounded-full uppercase tracking-widest">{policy.insurance_lines?.name}</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500 font-medium">Póliza: <span className="text-slate-900">{policy.policy_number}</span></p>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <span className={`flex items-center gap-1 text-[10px] font-bold ${policy.status === 'Vigente' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                        <CheckCircle2 className="w-3 h-3" /> {policy.status}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 flex items-center gap-1 font-medium">
+                                                        <Clock className="w-3 h-3" /> Vence: {new Date(policy.end_date).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex flex-col items-end">
+                                            <span className="text-lg font-black text-slate-900">${parseFloat(policy.premium_total || 0).toLocaleString()}</span>
+                                            <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{policy.currency}</span>
+                                            <ChevronRight className="w-5 h-5 text-slate-200 group-hover:text-emerald-500 mt-1 transition-colors" />
+                                        </div>
+                                    </Link>
+                                ))}
+
+                            {clientPolicies.length === 0 && (
+                                <div className="p-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                                    <Shield className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                    <p className="text-slate-500 font-bold">Sin pólizas registradas</p>
+                                    <Link href="/dashboard/policies/new" className="mt-4 inline-flex items-center gap-2 text-emerald-600 font-black text-xs uppercase tracking-widest hover:text-emerald-700">
+                                        Cargar Primera Póliza <Plus className="w-4 h-4" />
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 6. REPORTE DE COBRANZA (v24) */}
+                {activeTab === 'cobranza' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
+                                <AlertCircle className="absolute -right-4 -top-4 w-24 h-24 text-rose-500/5 rotate-12" />
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Recibos Pendientes</p>
+                                <h4 className="text-3xl font-black text-rose-600">
+                                    {collectionData.filter(i => i.status !== 'Pagado').length}
+                                </h4>
+                                <p className="text-xs text-slate-500 font-medium">De un total de {collectionData.length}</p>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
+                                <CheckCircle2 className="absolute -right-4 -top-4 w-24 h-24 text-emerald-500/5 rotate-12" />
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Pagado</p>
+                                <h4 className="text-3xl font-black text-emerald-600">
+                                    ${collectionData
+                                        .filter(i => i.status === 'Pagado')
+                                        .reduce((acc, curr) => acc + parseFloat(curr.total_amount || 0), 0)
+                                        .toLocaleString()}
+                                </h4>
+                                <p className="text-xs text-slate-500 font-medium">Monto acumulado</p>
+                            </div>
+
+                            <div className="bg-slate-900 p-6 rounded-3xl shadow-xl shadow-slate-200 overflow-hidden relative">
+                                <Clock className="absolute -right-4 -top-4 w-24 h-24 text-white/5 rotate-12" />
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Adeudo Total</p>
+                                <h4 className="text-3xl font-black text-white">
+                                    ${collectionData
+                                        .filter(i => i.status !== 'Pagado')
+                                        .reduce((acc, curr) => acc + parseFloat(curr.total_amount || 0), 0)
+                                        .toLocaleString()}
+                                </h4>
+                                <p className="text-xs text-slate-400 font-medium tracking-tight">Carga financiera actual</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 flex justify-between items-center px-6">
+                                <h5 className="text-xs font-black text-slate-900 uppercase tracking-tight">Desglose de Recibos</h5>
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded">ORDENADO POR VENCIMIENTO</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-wider">
+                                        <tr>
+                                            <th className="px-6 py-4">Vencimiento</th>
+                                            <th className="px-6 py-4">Póliza / Compañía</th>
+                                            <th className="px-6 py-4">Monto</th>
+                                            <th className="px-6 py-4">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 italic">
+                                        {collectionData.map((inst, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-bold text-slate-700">{new Date(inst.due_date).toLocaleDateString()}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-slate-900">{inst.policies?.policy_number}</span>
+                                                        <span className="text-[10px] text-slate-400 font-medium uppercase">{inst.policies?.insurers?.alias || inst.policies?.insurers?.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-sm font-black text-slate-900">${parseFloat(inst.total_amount || 0).toLocaleString()}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${inst.status === 'Pagado' ? 'bg-emerald-50 text-emerald-600' :
+                                                        new Date(inst.due_date) < new Date() ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
+                                                        }`}>
+                                                        {inst.status === 'Pagado' ? 'LIQUIDADO' : new Date(inst.due_date) < new Date() ? 'VENCIDO' : 'PENDIENTE'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </form>
         </div>
     )

@@ -36,7 +36,8 @@ export default function NewPolicyPage() {
     const [clientCandidates, setClientCandidates] = useState<any[]>([])
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
     const [showClientSync, setShowClientSync] = useState(false)
-    const [clientToSync, setClientToSync] = useState<any>(null)
+    const [clientSearch, setClientSearch] = useState('')
+    const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
 
     // Catalogos
@@ -336,8 +337,8 @@ export default function NewPolicyPage() {
                 alert('✅ Póliza cargada. Algunos datos requieren selección manual (revisa los indicadores rojos).')
             }
 
-            // Saltamos al paso 2 para que vea los detalles técnicos extraídos
-            setStep(2)
+            // v24: Ya NO saltamos al paso 2 automáticamente para permitir revisión en el paso 1
+            // setStep(2)
 
         } catch (error: any) {
             console.error('OCR Error:', error)
@@ -427,11 +428,13 @@ export default function NewPolicyPage() {
             setFormData(prev => {
                 // Solo actualizar si hay cambios reales para evitar loops
                 const nextVat = formatInputCurrency(formattedVat);
-                if (prev.premium_total === formattedTotal && prev.vat_amount === nextVat) return prev;
+                // v25 Fix: Asegurar que 'tax' también se actualice para el payload final
+                if (prev.premium_total === formattedTotal && prev.vat_amount === nextVat && prev.tax === formattedVat) return prev;
 
                 return {
                     ...prev,
                     vat_amount: nextVat,
+                    tax: formattedVat,
                     premium_total: formattedTotal
                 }
             })
@@ -603,8 +606,9 @@ export default function NewPolicyPage() {
                 if (instError) console.error("Error guardando recibos:", instError)
             }
 
-            // VINCULAR CARÁTULA (v71)
+            // VINCULAR CARÁTULA (v25) - Persistencia robusta
             if (policyData && policyFileUrl) {
+                console.log("Vinculando carátula PDF...", policyFileUrl)
                 const { error: docError } = await (supabase.from('policy_documents') as any)
                     .insert({
                         policy_id: policyData.id,
@@ -612,7 +616,10 @@ export default function NewPolicyPage() {
                         file_url: policyFileUrl,
                         notes: 'Cargado automáticamente mediante IA'
                     })
-                if (docError) console.error("Error vinculando carátula:", docError)
+                if (docError) {
+                    console.error("Error vinculando carátula:", docError)
+                    alert("⚠️ La póliza se guardó pero hubo un error al vincular el PDF. Por favor, cárguelo manualmente en detalles.")
+                }
             }
 
             setCreatedPolicyId(policyData.id)
@@ -791,17 +798,70 @@ export default function NewPolicyPage() {
                                     </div>
                                     {!formData.client_id && <span className="text-[10px] text-rose-500 font-black animate-pulse flex items-center gap-1"><AlertCircle className="w-3 h-3" /> REQUERIDO</span>}
                                 </label>
-                                <select
-                                    required
-                                    className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
-                                    value={formData.client_id}
-                                    onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                                >
-                                    <option value="">Seleccionar Cliente...</option>
-                                    {clients.map(c => (
-                                        <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <div
+                                        className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between cursor-pointer hover:border-emerald-500 transition-all"
+                                        onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                                    >
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            {formData.client_id ? (
+                                                <span className="font-bold text-slate-900 truncate">
+                                                    {clients.find(c => c.id === formData.client_id)?.first_name} {clients.find(c => c.id === formData.client_id)?.last_name}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400">Seleccionar Cliente...</span>
+                                            )}
+                                        </div>
+                                        <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${isClientDropdownOpen ? 'rotate-90' : ''}`} />
+                                    </div>
+
+                                    {isClientDropdownOpen && (
+                                        <div className="absolute z-50 mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="p-3 border-b border-slate-100">
+                                                <div className="relative">
+                                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                    <input
+                                                        autoFocus
+                                                        type="text"
+                                                        placeholder="Buscar por nombre..."
+                                                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                                                        value={clientSearch}
+                                                        onChange={(e) => setClientSearch(e.target.value)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+                                                {clients
+                                                    .filter(c =>
+                                                        `${c.first_name} ${c.last_name}`.toLowerCase().includes(clientSearch.toLowerCase())
+                                                    )
+                                                    .map(c => (
+                                                        <div
+                                                            key={c.id}
+                                                            className={`p-3 rounded-xl cursor-pointer transition-all flex items-center justify-between group ${formData.client_id === c.id ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-slate-50'}`}
+                                                            onClick={() => {
+                                                                setFormData({ ...formData, client_id: c.id });
+                                                                setIsClientDropdownOpen(false);
+                                                                setClientSearch('');
+                                                            }}
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-sm">{c.first_name} {c.last_name}</span>
+                                                            </div>
+                                                            {formData.client_id === c.id && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                                                        </div>
+                                                    ))}
+                                                {clients.filter(c => `${c.first_name} ${c.last_name}`.toLowerCase().includes(clientSearch.toLowerCase())).length === 0 && (
+                                                    <div className="p-8 text-center">
+                                                        <User className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                                        <p className="text-xs text-slate-400 font-medium">No se encontraron clientes</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
                                 {/* Fase 17: Sugerencias de Clientes Inteligent */}
                                 {parsedClientName && clientCandidates.length > 0 && !formData.client_id && (
@@ -845,14 +905,21 @@ export default function NewPolicyPage() {
                                             onClick={async () => {
                                                 // Quick Create Logic
                                                 const [first, ...rest] = (parsedClientName || '').split(' ');
+
+                                                // v24: Normalizar WhatsApp (+52)
+                                                let finalPhone = parsedClientPhone || '';
+                                                if (finalPhone && finalPhone.replace(/\D/g, '').length === 10) {
+                                                    finalPhone = `+52${finalPhone.replace(/\D/g, '')}`;
+                                                }
+
                                                 const { data: newClient, error } = await (supabase.from('clients') as any).insert({
                                                     user_id: (await supabase.auth.getUser()).data.user?.id,
                                                     first_name: first,
                                                     last_name: rest.join(' '),
                                                     status: 'active',
                                                     rfc: parsedClientRFC,
-                                                    phone: parsedClientPhone,
-                                                    whatsapp: parsedClientPhone, // v19.5: Sync WhatsApp
+                                                    phone: finalPhone,
+                                                    whatsapp: finalPhone, // v19.5: Sync WhatsApp
                                                     email: parsedClientEmail
                                                 }).select().single();
 
@@ -878,8 +945,13 @@ export default function NewPolicyPage() {
                                                 const updates: any = {};
                                                 if (parsedClientRFC) updates.rfc = parsedClientRFC;
                                                 if (parsedClientPhone) {
-                                                    updates.phone = parsedClientPhone;
-                                                    updates.whatsapp = parsedClientPhone; // v19.5: Sync WhatsApp
+                                                    // v24: Normalizar WhatsApp (+52)
+                                                    let finalPhone = parsedClientPhone;
+                                                    if (finalPhone && finalPhone.replace(/\D/g, '').length === 10) {
+                                                        finalPhone = `+52${finalPhone.replace(/\D/g, '')}`;
+                                                    }
+                                                    updates.phone = finalPhone;
+                                                    updates.whatsapp = finalPhone; // v19.5: Sync WhatsApp
                                                 }
                                                 if (parsedClientEmail) updates.email = parsedClientEmail;
 

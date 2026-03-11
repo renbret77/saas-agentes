@@ -2,9 +2,16 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import {
+    getWelcomeMessage,
+    getPaymentCalendarMessage,
+    getSecurityTipsMessage,
+    getRenewalMessage,
+    generateWhatsAppLink
+} from "@/lib/whatsapp-templates"
 
 export default function EditPolicyPage({ params }: { params: any }) {
     const resolvedParams: any = use(params)
@@ -313,11 +320,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
 
             setFormData((prev: any) => {
                 const nextVat = formatInputCurrency(formattedVat);
-                if (prev.premium_total === formattedTotal && prev.vat_amount === nextVat) return prev;
+                // v25 Fix: Asegurar que 'tax' también se actualice para el payload final
+                if (prev.premium_total === formattedTotal && prev.vat_amount === nextVat && prev.tax === formattedVat) return prev;
 
                 return {
                     ...prev,
                     vat_amount: nextVat,
+                    tax: formattedVat,
                     premium_total: formattedTotal
                 }
             })
@@ -779,6 +788,72 @@ export default function EditPolicyPage({ params }: { params: any }) {
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
+                {/* v24: Quick Actions Bar */}
+                <div className="bg-slate-50 border-b border-slate-100 p-4 flex flex-wrap items-center gap-3">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" /> Acciones Rápidas:
+                    </span>
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const msg = getWelcomeMessage(
+                                `${client?.first_name} ${client?.last_name}`,
+                                formData.policy_number,
+                                insurer?.name || 'Aseguradora',
+                                documents[0]?.file_url || 'Link no disponible'
+                            )
+                            window.open(generateWhatsAppLink(client?.phone || '', msg), '_blank')
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                        BIENVENIDA ✨
+                    </button>
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const msg = getPaymentCalendarMessage(
+                                `${client?.first_name} ${client?.last_name}`,
+                                formData.policy_number,
+                                installments
+                            )
+                            window.open(generateWhatsAppLink(client?.phone || '', msg), '_blank')
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                        CALENDARIO 📅
+                    </button>
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const msg = getSecurityTipsMessage(`${client?.first_name} ${client?.last_name}`)
+                            window.open(generateWhatsAppLink(client?.phone || '', msg), '_blank')
+                        }}
+                        className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                        TIPS 🛡️
+                    </button>
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const line = lines.find(l => l.id === formData.branch_id)
+                            const msg = getRenewalMessage(
+                                `${client?.first_name} ${client?.last_name}`,
+                                line?.name || 'Seguro',
+                                insurer?.name || 'Aseguradora',
+                                formData.policy_number,
+                                formData.end_date,
+                                parseNum(formData.premium_total)
+                            )
+                            window.open(generateWhatsAppLink(client?.phone || '', msg), '_blank')
+                        }}
+                        className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                        RENOVACIÓN 🕒
+                    </button>
+                </div>
+
                 <div className="p-8">
                     <div className={`space-y-6 ${step === 1 ? 'block' : 'hidden'}`}>
                         <div className="border-b border-slate-100 pb-4">

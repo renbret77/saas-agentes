@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2 } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
@@ -39,8 +39,8 @@ export default function PoliciesPage() {
                     clients (first_name, last_name, phone),
                     insurers (name, alias),
                     insurance_lines (name),
-                    policy_installments (whatsapp_sent, whatsapp_status, due_date),
-                    policy_documents (document_type, file_url)
+                    policy_installments (id, installment_number, total_amount, status, whatsapp_sent, whatsapp_status, due_date),
+                    policy_documents (id, document_type, file_url, created_at)
                 `)
                 .order('created_at', { ascending: false })
 
@@ -236,7 +236,9 @@ export default function PoliciesPage() {
                                                 <td className="px-6 py-5">
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-semibold text-slate-800">{policy.insurers?.alias || policy.insurers?.name}</span>
-                                                        <span className="text-[10px] text-slate-400 uppercase tracking-tighter">{policy.payment_method}</span>
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[9px] font-bold uppercase tracking-tighter w-fit mt-1 border border-blue-100 italic">
+                                                            {policy.payment_method}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5">
@@ -306,47 +308,128 @@ export default function PoliciesPage() {
                                                                 </div>
                                                             </div>
 
-                                                            <div className="space-y-3">
-                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2">
-                                                                    <CreditCard className="w-3 h-3" /> Desglose Financiero
+                                                            <div className="space-y-3 col-span-1 md:col-span-2">
+                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2 border-b border-emerald-100 pb-1">
+                                                                    <CreditCard className="w-3 h-3" /> Listado de Recibos y Cobranza
                                                                 </h4>
-                                                                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2 shadow-sm">
-                                                                    <div className="flex justify-between text-xs text-slate-500">
-                                                                        <span>Prima Neta:</span>
-                                                                        <span className="font-medium">${formatCurrency(policy.premium_net)}</span>
-                                                                    </div>
-                                                                    <div className="flex justify-between text-xs text-slate-500">
-                                                                        <span>IVA / Impuestos:</span>
-                                                                        <span className="font-medium">${formatCurrency(policy.tax || policy.vat_amount)}</span>
-                                                                    </div>
-                                                                    <div className="pt-2 border-t border-slate-100 flex justify-between text-xs">
-                                                                        <span className="font-bold text-slate-900 uppercase">Total:</span>
-                                                                        <span className="font-black text-emerald-600">${formatCurrency(policy.premium_total)} {policy.currency}</span>
-                                                                    </div>
+                                                                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                                                    <table className="w-full text-[10px]">
+                                                                        <thead className="bg-slate-50 text-slate-400 font-bold uppercase">
+                                                                            <tr>
+                                                                                <th className="px-3 py-2">#</th>
+                                                                                <th className="px-3 py-2">Vencimiento</th>
+                                                                                <th className="px-3 py-2">Importe</th>
+                                                                                <th className="px-3 py-2">Estado</th>
+                                                                                <th className="px-3 py-2 text-right">Acción</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100">
+                                                                            {policy.policy_installments?.length > 0 ? (
+                                                                                policy.policy_installments
+                                                                                    .sort((a: any, b: any) => a.installment_number - b.installment_number)
+                                                                                    .map((inst: any) => (
+                                                                                        <tr key={inst.id} className="hover:bg-slate-50 transition-colors">
+                                                                                            <td className="px-3 py-2 font-bold text-slate-400">{inst.installment_number}</td>
+                                                                                            <td className="px-3 py-2 font-medium">{new Date(inst.due_date).toLocaleDateString()}</td>
+                                                                                            <td className="px-3 py-2 font-bold text-slate-900">${formatCurrency(inst.total_amount || 0)}</td>
+                                                                                            <td className="px-3 py-2 text-center">
+                                                                                                <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter shadow-sm border ${inst.status === 'Pagado' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                                                                                                    {inst.status || 'Pendiente'}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td className="px-3 py-2 text-right">
+                                                                                                <button
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                                                        const msg = encodeURIComponent(`Hola *${clientName}* 👋, te recordamos el pago de tu recibo *${inst.installment_number}* de la póliza *${policy.policy_number}* por *$${formatCurrency(inst.total_amount)}*. \n\nVence el: *${new Date(inst.due_date).toLocaleDateString()}* 📅. ¡Saludos! ✨`);
+                                                                                                        window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${msg}`, '_blank');
+                                                                                                    }}
+                                                                                                    className="text-[9px] font-black text-emerald-600 hover:text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95"
+                                                                                                >
+                                                                                                    Cobrar
+                                                                                                </button>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    ))
+                                                                            ) : (
+                                                                                <tr>
+                                                                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-400 italic">No hay recibos generados p/ esta póliza</td>
+                                                                                </tr>
+                                                                            )}
+                                                                        </tbody>
+                                                                    </table>
                                                                 </div>
                                                             </div>
 
                                                             <div className="space-y-3">
-                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2">
-                                                                    <MessageCircle className="w-3 h-3" /> Gestión y Contacto
+                                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 flex items-center gap-2 border-b border-emerald-100 pb-1">
+                                                                    <FileText className="w-3 h-3" /> Endosos y Doc.
                                                                 </h4>
-                                                                <div className="flex flex-col gap-2">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const message = encodeURIComponent(`Hola ${policy.clients?.first_name} 👋, te recordamos el pago de tu póliza ${policy.policy_number} de ${policy.insurers?.alias || policy.insurers?.name} 📄. ¡Saludos! ✅`)
-                                                                            window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${message}`, '_blank')
-                                                                        }}
-                                                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
-                                                                    >
-                                                                        <MessageCircle className="w-4 h-4" /> Enviar Recordatorio WhatsApp
-                                                                    </button>
-                                                                    {policy.notes && (
-                                                                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-[10px] text-amber-800 leading-tight">
-                                                                            <span className="font-bold">NOTAS:</span> {policy.notes}
+                                                                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                                                    {policy.policy_documents?.filter((d: any) => d.document_type !== 'Carátula').length > 0 ? (
+                                                                        <div className="divide-y divide-slate-100">
+                                                                            {policy.policy_documents
+                                                                                .filter((d: any) => d.document_type !== 'Carátula')
+                                                                                .map((doc: any) => (
+                                                                                    <div key={doc.id} className="p-2 flex items-center justify-between hover:bg-slate-50 transition-all">
+                                                                                        <div className="flex flex-col">
+                                                                                            <span className="text-[10px] font-bold text-slate-700">{doc.document_type}</span>
+                                                                                            <span className="text-[8px] text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</span>
+                                                                                        </div>
+                                                                                        <a
+                                                                                            href={doc.file_url}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="text-blue-600 hover:text-blue-800 text-[9px] font-black uppercase tracking-tighter"
+                                                                                        >
+                                                                                            Ver
+                                                                                        </a>
+                                                                                    </div>
+                                                                                ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="p-4 text-center text-[10px] text-slate-400 italic">
+                                                                            Sin endosos registrados
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             </div>
+
+                                                        </div>
+
+                                                        {/* Quick Actions Bar */}
+                                                        <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5 grayscale opacity-70">
+                                                                <MessageSquare className="w-3 h-3" /> Canales de Entrega:
+                                                            </span>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const msg = encodeURIComponent(`✨ *¡BIENVENIDO A TU PROTECCIÓN!* ✨ \n\nHola *${clientName}*, es un gusto saludarte. 👋 \n\nTe confirmo que tu póliza ya está registrada en nuestro sistema: \n\n🏢 *Aseguradora:* ${policy.insurers?.alias || policy.insurers?.name} \n🔢 *Póliza:* *${policy.policy_number}* \n\nQuedo a tus órdenes para cualquier duda. ¡Gracias por tu confianza! 😊`);
+                                                                    window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${msg}`, '_blank');
+                                                                }}
+                                                                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md active:scale-95 border border-slate-800"
+                                                            >
+                                                                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> Bienvenida & Carátula
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const msg = encodeURIComponent(`🕒 *AVISO DE RENOVACIÓN* 🕒 \n\nHola *${clientName}*, te informo que tu póliza *${policy.policy_number}* está próxima a renovarse. \n\n¿Gustas que revisemos las nuevas condiciones? 😊`);
+                                                                    window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${msg}`, '_blank');
+                                                                }}
+                                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                                            >
+                                                                <Shield className="w-3.5 h-3.5 text-amber-500" /> Aviso Renovación
+                                                            </button>
+                                                            {policy.notes && (
+                                                                <div className="flex-1 min-w-[200px] p-2 bg-amber-50/50 rounded-xl border border-amber-100/50 text-[10px] text-amber-800 italic leading-tight shadow-inner">
+                                                                    <strong className="text-amber-900 uppercase">Nota:</strong> {policy.notes}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
