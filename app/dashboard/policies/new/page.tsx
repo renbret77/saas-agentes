@@ -12,6 +12,9 @@ export default function NewPolicyPage() {
     const router = useRouter()
     const [step, setStep] = useState(1)
     const [loading, setLoading] = useState(false)
+    const [showSuccess, setShowSuccess] = useState(false)
+    const [createdPolicyId, setCreatedPolicyId] = useState<string | null>(null)
+    const [syncSummary, setSyncSummary] = useState<{ rfc: boolean, phone: boolean, email: boolean }>({ rfc: false, phone: false, email: false })
     const [isParsingPolicy, setIsParsingPolicy] = useState(false)
     const [policyFileUrl, setPolicyFileUrl] = useState<string | null>(null)
     const [parsedClientName, setParsedClientName] = useState<string | null>(null)
@@ -583,7 +586,9 @@ export default function NewPolicyPage() {
                 if (docError) console.error("Error vinculando carátula:", docError)
             }
 
-            router.push('/dashboard/policies')
+            setCreatedPolicyId(policyData.id)
+            setShowSuccess(true)
+            // router.push('/dashboard/policies') // Quitamos el redirect inmediato
         } catch (error: any) {
             console.error('Error saving policy complete:', error)
             alert('Error detallado de Base de Datos:\n' + JSON.stringify(error, null, 2))
@@ -598,6 +603,61 @@ export default function NewPolicyPage() {
         { id: 3, name: 'Vigencia', icon: CreditCard },
         { id: 4, name: 'Económicos', icon: FileText },
     ]
+
+    if (showSuccess) {
+        return (
+            <div className="max-w-xl mx-auto py-20 text-center space-y-8 animate-in fade-in zoom-in duration-500">
+                <div className="relative inline-block">
+                    <div className="absolute inset-0 bg-emerald-400 blur-2xl opacity-20 animate-pulse"></div>
+                    <div className="relative w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-200">
+                        <CheckCircle2 className="w-12 h-12 text-white" />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">¡Póliza Guardada!</h2>
+                    <p className="text-slate-500 font-medium">La póliza y sus recibos se han generado correctamente.</p>
+                </div>
+
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 space-y-6">
+                    <div className="flex items-center justify-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+                            <User className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente Actualizado</p>
+                            <p className="font-bold text-slate-900">{(clients.find(c => c.id === formData.client_id))?.first_name} {(clients.find(c => c.id === formData.client_id))?.last_name}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className={`p-2 rounded-xl border text-[10px] font-bold uppercase transition-all ${syncSummary.rfc ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>RFC</div>
+                        <div className={`p-2 rounded-xl border text-[10px] font-bold uppercase transition-all ${syncSummary.phone ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>Teléfono</div>
+                        <div className={`p-2 rounded-xl border text-[10px] font-bold uppercase transition-all ${syncSummary.email ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>Email</div>
+                    </div>
+
+                    <div className="space-y-3 pt-4">
+                        <Link
+                            href={`/dashboard/clients/${formData.client_id}?tab=comunicaciones`}
+                            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 active:scale-[0.98]"
+                        >
+                            <MessageSquare className="w-5 h-5" />
+                            CONFIGURAR WHATSAPP & ALERTAS
+                        </Link>
+
+                        <button
+                            onClick={() => router.push('/dashboard/policies')}
+                            className="w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold transition-all"
+                        >
+                            VER LISTADO DE PÓLIZAS
+                        </button>
+                    </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-bold">Portal de Seguros v2.5 • Intelligence Core</p>
+            </div>
+        )
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-20">
@@ -778,7 +838,14 @@ export default function NewPolicyPage() {
                                                 if (parsedClientEmail) updates.email = parsedClientEmail;
 
                                                 const { error } = await supabase.from('clients').update(updates).eq('id', formData.client_id);
-                                                if (!error) alert('Datos sincronizados con éxito al cliente seleccionado.');
+                                                if (!error) {
+                                                    setSyncSummary({
+                                                        rfc: !!parsedClientRFC,
+                                                        phone: !!parsedClientPhone,
+                                                        email: !!parsedClientEmail
+                                                    })
+                                                    alert('Datos sincronizados con éxito al cliente seleccionado.');
+                                                }
                                             }}
                                         >
                                             <CheckCircle2 className="w-3 h-3" />

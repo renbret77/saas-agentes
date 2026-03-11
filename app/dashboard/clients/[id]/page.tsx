@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Loader2, User, Briefcase, Phone, FileText, Users, Plus, Trash2, MapPin, BadgeCheck, Mail } from "lucide-react"
+import { ArrowLeft, Save, Loader2, User, Briefcase, Phone, FileText, Users, Plus, Trash2, MapPin, BadgeCheck, Mail, MessageSquare, BellRing } from "lucide-react"
 import Link from "next/link"
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
@@ -12,6 +12,7 @@ import { Database } from "@/types/database.types"
 type ClientInsert = Database['public']['Tables']['clients']['Insert'] & {
     mobile_phone?: string | null
     work_phone?: string | null
+    whatsapp?: string | null
     secondary_email?: string | null
 }
 
@@ -21,6 +22,7 @@ const TABS = [
     { id: 'direcciones', label: 'Direcciones', icon: MapPin },
     { id: 'identificacion', label: 'Identificación', icon: BadgeCheck },
     { id: 'contactos', label: 'Relaciones (Familia/Socios)', icon: Users },
+    { id: 'comunicaciones', label: 'Comunicaciones', icon: MessageSquare },
 ]
 
 export default function EditClientPage(props: { params: Promise<{ id: string }> }) {
@@ -257,7 +259,30 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">RFC</label>
-                                <input name="rfc" value={formData.rfc || ''} onChange={(e) => setFormData({ ...formData, rfc: e.target.value.toUpperCase() })} placeholder="XAXX010101000" className="w-full px-4 py-2 rounded-lg border border-slate-200 uppercase" />
+                                <input
+                                    name="rfc"
+                                    value={formData.rfc || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value.toUpperCase();
+                                        setFormData(prev => {
+                                            const updates: any = { rfc: val };
+                                            // Extraer fecha de nacimiento si es RFC de persona física (13 caracteres y no tiene fecha aún)
+                                            if (val.length >= 10 && !prev.birth_date) {
+                                                const datePart = val.substring(3, 9);
+                                                if (/^\d{6}$/.test(datePart)) {
+                                                    let year = parseInt(datePart.substring(0, 2));
+                                                    const month = datePart.substring(2, 4);
+                                                    const day = datePart.substring(4, 6);
+                                                    year += (year > 30 ? 1900 : 2000);
+                                                    updates.birth_date = `${year}-${month}-${day}`;
+                                                }
+                                            }
+                                            return { ...prev, ...updates };
+                                        });
+                                    }}
+                                    placeholder="XAXX010101000"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 uppercase font-mono"
+                                />
                             </div>
                         </div>
 
@@ -286,12 +311,14 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">Régimen Fiscal</label>
-                                <select name="fiscal_regime" value={formData.fiscal_regime || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white">
+                                <select name="fiscal_regime" value={formData.fiscal_regime || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white font-medium">
                                     <option value="">Seleccione...</option>
-                                    <option value="605">Sueldos y Salarios</option>
-                                    <option value="612">Personas Físicas con Actividades Empresariales</option>
-                                    <option value="626">Régimen Simplificado de Confianza (RESICO)</option>
-                                    <option value="601">General de Ley Personas Morales</option>
+                                    <option value="601">601 - General de Ley Personas Morales</option>
+                                    <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
+                                    <option value="605">605 - Sueldos y Salarios e Ingresos Asimilados a Salarios</option>
+                                    <option value="606">606 - Arrendamiento</option>
+                                    <option value="612">612 - Personas Físicas con Actividades Empresariales y Profesionales</option>
+                                    <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
@@ -701,20 +728,93 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                     </div>
                 )}
 
-                {/* 3. OBSERVACIONES */}
-                {activeTab === 'observaciones' && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                        <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">Notas Internas</h3>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Observaciones Generales</label>
-                            <textarea
-                                name="notes"
-                                rows={10}
-                                value={formData.notes || ''}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                                placeholder="Escribe aquí cualquier detalle importante..."
-                            />
+                {/* 4. COMUNICACIONES & NOTIFICACIONES */}
+                {activeTab === 'comunicaciones' && (
+                    <div className="space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100 flex items-start gap-4">
+                            <div className="p-3 bg-emerald-100 rounded-xl text-emerald-700">
+                                <MessageSquare className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-emerald-900">Canales de Comunicación</h3>
+                                <p className="text-emerald-700/80 text-sm">Configure cómo y dónde quiere que su cliente reciba notificaciones automáticas.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 block ml-1">WhatsApp Principal para Alertas</label>
+                                    <PhoneInput
+                                        international
+                                        defaultCountry="MX"
+                                        value={formData.whatsapp || undefined}
+                                        onChange={(val) => handlePhoneChange(val, 'whatsapp')}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white shadow-sm"
+                                    />
+                                    <p className="text-[10px] text-slate-400 italic ml-1">* Se usará para cobranza y recordatorios de renovación.</p>
+                                </div>
+
+                                <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                        <BellRing className="w-4 h-4 text-emerald-500" /> Preferencias de Envío
+                                    </h4>
+
+                                    <label className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-100 transition-all">
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-bold text-slate-700">Alertas por WhatsApp</p>
+                                            <p className="text-[11px] text-slate-500">Enviar recordatorios de pago automáticamente.</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded-md border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                            checked={true} // Por ahora harcodeado como default, o usar un campo meta
+                                        />
+                                    </label>
+
+                                    <label className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-100 transition-all">
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-bold text-slate-700">Compendio por Email</p>
+                                            <p className="text-[11px] text-slate-500">Enviar pólizas y recibos al correo principal.</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded-md border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                            checked={true}
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="p-5 bg-slate-900 rounded-2xl text-white shadow-xl">
+                                    <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4">Estado del Cliente</h4>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                            <span className="text-xs text-slate-400">RFC</span>
+                                            <span className="text-sm font-mono font-bold text-emerald-300">{formData.rfc || 'PENDIENTE'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                            <span className="text-xs text-slate-400">Régimen Fiscal</span>
+                                            <span className="text-xs font-bold">{formData.fiscal_regime || 'POR DEFINIR'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs text-slate-400">Nivel de Confianza</span>
+                                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-bold">PLATINUM</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-5 border border-dashed border-slate-200 rounded-2xl space-y-2">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notas de Bitácora</p>
+                                    <textarea
+                                        className="w-full h-24 bg-transparent text-sm text-slate-600 outline-none resize-none"
+                                        placeholder="Historial de contacto manual..."
+                                        value={formData.notes || ''}
+                                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
