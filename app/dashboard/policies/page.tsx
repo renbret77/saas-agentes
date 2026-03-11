@@ -476,7 +476,7 @@ export default function PoliciesPage() {
                                                                         firstInst,
                                                                         subInst,
                                                                         limitDateFirst,
-                                                                        policy.caratula_url || 'https://rb-proyectos.vercel.app',
+                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://rb-proyectos.vercel.app',
                                                                         policy.currency === 'USD' ? 'USD$' : '$'
                                                                     );
 

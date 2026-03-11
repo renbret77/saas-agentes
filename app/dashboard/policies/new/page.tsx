@@ -587,7 +587,7 @@ export default function NewPolicyPage() {
                 premium_net: parseNum(formData.premium_net),
                 tax: parseNum(formData.tax),
                 premium_total: parseNum(formData.premium_total),
-                caratula_url: policyFileUrl || null, // v27: Persistencia directa en tabla policies
+                // caratula_url: policyFileUrl || null, // v27: Removido por falta de columna en DB. Se usa policy_documents.
                 total_installments: parseInt(formData.total_installments) || 1,
                 current_installment: parseInt(formData.current_installment) || 1,
                 payment_link: formData.payment_link || null,
