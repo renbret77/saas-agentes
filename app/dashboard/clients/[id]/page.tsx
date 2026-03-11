@@ -267,8 +267,9 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                         setFormData(prev => {
                                             const updates: any = { rfc: val };
                                             // Extraer fecha de nacimiento si es RFC de persona física (13 caracteres y no tiene fecha aún)
-                                            if (val.length >= 10 && !prev.birth_date) {
-                                                const datePart = val.substring(3, 9);
+                                            // v19.5: RFC Física empieza en pos 4 (ABCDYYMMDD...)
+                                            if (val.length >= 10 && !prev.birth_date && val.length === 13) {
+                                                const datePart = val.substring(4, 10);
                                                 if (/^\d{6}$/.test(datePart)) {
                                                     let year = parseInt(datePart.substring(0, 2));
                                                     const month = datePart.substring(2, 4);
@@ -297,14 +298,23 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">Fecha de Nacimiento</label>
                                 <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200" />
                             </div>
                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Género</label>
+                                <select name="gender" value={formData.gender || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white">
+                                    <option value="">Seleccione...</option>
+                                    <option value="male">Masculino</option>
+                                    <option value="female">Femenino</option>
+                                    <option value="other">Otro / No aplica</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">CURP</label>
-                                <input name="curp" value={formData.curp || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200" />
+                                <input name="curp" value={formData.curp || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 uppercase" placeholder="18 Caracteres" />
                             </div>
                         </div>
 
@@ -317,7 +327,20 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                     <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
                                     <option value="605">605 - Sueldos y Salarios e Ingresos Asimilados a Salarios</option>
                                     <option value="606">606 - Arrendamiento</option>
+                                    <option value="607">607 - Enajenación o Adquisición de Bienes</option>
+                                    <option value="608">608 - Demás Ingresos</option>
+                                    <option value="610">610 - Residentes en el Extranjero sin Establecimiento Permanente en México</option>
+                                    <option value="611">611 - Ingresos por Dividendos (socios y accionistas)</option>
                                     <option value="612">612 - Personas Físicas con Actividades Empresariales y Profesionales</option>
+                                    <option value="614">614 - Ingresos por Intereses</option>
+                                    <option value="615">615 - Régimen de los ingresos por obtención de premios</option>
+                                    <option value="616">616 - Sin obligaciones fiscales</option>
+                                    <option value="620">620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos</option>
+                                    <option value="621">621 - Incorporación Fiscal</option>
+                                    <option value="622">622 - Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras</option>
+                                    <option value="623">623 - Opcional para Grupos de Sociedades</option>
+                                    <option value="624">624 - Coordinados</option>
+                                    <option value="625">625 - Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas</option>
                                     <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
                                 </select>
                             </div>

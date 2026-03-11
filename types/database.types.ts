@@ -94,6 +94,7 @@ export interface Database {
                     identifications: any | null // JSONB [{ type, number, expires }]
                     billing_info: any | null // JSONB [{ bank, last4 }]
                     notes: string | null
+                    whatsapp: string | null
                 }
                 Insert: {
                     id?: string
@@ -185,6 +186,8 @@ export interface Database {
                     notes: string | null
                     created_at: string
                     updated_at: string | null
+                    asset_description: string | null
+                    agent_code: string | null
                 }
                 Insert: {
                     id?: string

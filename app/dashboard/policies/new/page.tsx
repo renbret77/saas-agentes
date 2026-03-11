@@ -654,8 +654,10 @@ export default function NewPolicyPage() {
                             <User className="w-5 h-5" />
                         </div>
                         <div className="text-left">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente Actualizado</p>
-                            <p className="font-bold text-slate-900">{(clients.find(c => c.id === formData.client_id))?.first_name} {(clients.find(c => c.id === formData.client_id))?.last_name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Póliza Registrada Para</p>
+                            <p className="font-bold text-slate-900">
+                                {clients.find(c => c.id === formData.client_id)?.first_name || 'Cliente'} {clients.find(c => c.id === formData.client_id)?.last_name || ''}
+                            </p>
                         </div>
                     </div>
 
@@ -697,7 +699,7 @@ export default function NewPolicyPage() {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 07:15 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 07:30 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Nueva Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>
@@ -850,6 +852,7 @@ export default function NewPolicyPage() {
                                                     status: 'active',
                                                     rfc: parsedClientRFC,
                                                     phone: parsedClientPhone,
+                                                    whatsapp: parsedClientPhone, // v19.5: Sync WhatsApp
                                                     email: parsedClientEmail
                                                 }).select().single();
 
@@ -874,7 +877,10 @@ export default function NewPolicyPage() {
                                             onClick={async () => {
                                                 const updates: any = {};
                                                 if (parsedClientRFC) updates.rfc = parsedClientRFC;
-                                                if (parsedClientPhone) updates.phone = parsedClientPhone;
+                                                if (parsedClientPhone) {
+                                                    updates.phone = parsedClientPhone;
+                                                    updates.whatsapp = parsedClientPhone; // v19.5: Sync WhatsApp
+                                                }
                                                 if (parsedClientEmail) updates.email = parsedClientEmail;
 
                                                 const { error } = await (supabase.from('clients') as any).update(updates).eq('id', formData.client_id);
