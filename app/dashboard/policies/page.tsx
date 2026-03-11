@@ -6,7 +6,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
 import { getInsurerConfig } from "@/lib/insurers-config"
-import { getCollectionMessage } from "@/lib/whatsapp-templates"
+import { getCollectionMessage, getWelcomeMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -459,8 +459,29 @@ export default function PoliciesPage() {
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                    const msg = encodeURIComponent(`✨ *¡BIENVENIDO A TU PROTECCIÓN!* ✨ \n\nHola *${clientName}*, es un gusto saludarte. 👋 \n\nTe confirmo que tu póliza ya está registrada en nuestro sistema: \n\n🏢 *Aseguradora:* ${policy.insurers?.alias || policy.insurers?.name} \n🔢 *Póliza:* *${policy.policy_number}* \n\nQuedo a tus órdenes para cualquier duda. ¡Gracias por tu confianza! 😊`);
-                                                                    window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${msg}`, '_blank');
+                                                                    const installments = policy.policy_installments || [];
+                                                                    const firstInst = installments.find((i: any) => i.installment_number === 1)?.total_amount || 0;
+                                                                    const subInst = installments.find((i: any) => i.installment_number === 2)?.total_amount || 0;
+                                                                    const limitDateFirst = installments.find((i: any) => i.installment_number === 1)?.due_date || policy.start_date;
+
+                                                                    const welcomeMsg = getWelcomeMessage(
+                                                                        clientName,
+                                                                        policy.policy_number,
+                                                                        policy.insurers?.alias || policy.insurers?.name,
+                                                                        policy.insurance_lines?.name || 'Seguro',
+                                                                        policy.payment_method || 'Contado',
+                                                                        policy.start_date,
+                                                                        policy.end_date,
+                                                                        policy.premium_total,
+                                                                        firstInst,
+                                                                        subInst,
+                                                                        limitDateFirst,
+                                                                        policy.caratula_url || 'https://rb-proyectos.vercel.app',
+                                                                        policy.currency === 'USD' ? 'USD$' : '$'
+                                                                    );
+
+                                                                    const waLink = generateWhatsAppLink(policy.clients?.phone || '', welcomeMsg);
+                                                                    window.open(waLink, '_blank');
                                                                 }}
                                                                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md active:scale-95 border border-slate-800"
                                                             >
