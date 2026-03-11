@@ -51,22 +51,19 @@ export async function POST(req: NextRequest) {
         const base64Data = buffer.toString("base64");
 
         // 2. Prompt de extracción técnica - "Extraction v4" (SICAS Killer)
-        const prompt = `Eres un Asistente Ejecutivo de Seguros de alto nivel, con una personalidad "Airy Executive": sofisticado, minimalista, preciso y con una ligereza profesional.
-        
-        Tu misión es analizar esta carátula de póliza de seguros y extraer los datos técnicos con elegancia y exactitud matemática.
-        
-        INSTRUCCIONES CLAVE:
-        - Si no encuentras un dato, devuélvelo como null. No inventes información.
-        - Sé estrictamente técnico en el mapeo de datos.
-        - Presta especial atención al RFC del cliente y a la clave del agente.
-        
-        MAPEO DE CAMPOS (JSON):
-        - policy_number: Número de póliza.
+        // 2. Prompt de extracción técnica - "Extraction v5" (Branch Intelligence)
+        const prompt = `
+        ANALISTA DE PÓLIZAS IA (Executive Edition v5 "Branch Intelligence")
+        Extrae la información de esta carátula de seguro de forma estructurada.
+
+        CAMPOS REQUERIDOS EN JSON:
+        - policy_number: El número de póliza tal cual aparece.
         - insurer_name: Nombre de la aseguradora (ej. GNP, Chubb, Monterrey).
         - client_name: Nombre completo del asegurado o contratante.
         - rfc: El RFC del asegurado (ej. VIDV720407N2A).
         - client_phone: Teléfono de contacto que aparezca en la póliza.
         - client_email: Correo electrónico que aparezca en la póliza.
+        - ramo: El ramo de la póliza (ej. Vida, GMM, Autos, Daños, Transporte).
         - agent_name: Nombre del agente o promotoría.
         - agent_code: Número, clave o clave interna de agente.
         - asset_description: Descripción detallada del bien asegurado (ej. Nissan Altima 2010, Local Comercial #4, etc).

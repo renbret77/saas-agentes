@@ -18,6 +18,7 @@ export default function NewPolicyPage() {
     const [parsedClientRFC, setParsedClientRFC] = useState<string | null>(null)
     const [parsedClientPhone, setParsedClientPhone] = useState<string | null>(null)
     const [parsedClientEmail, setParsedClientEmail] = useState<string | null>(null)
+    const [parsedBranchName, setParsedBranchName] = useState<string | null>(null)
     const [parsedAgentCode, setParsedAgentCode] = useState<string | null>(null)
     const [parsedAgentName, setParsedAgentName] = useState<string | null>(null)
     const [parsedFirstInstallment, setParsedFirstInstallment] = useState<number | null>(null)
@@ -155,6 +156,7 @@ export default function NewPolicyPage() {
         setParsedClientRFC(null)
         setParsedClientPhone(null)
         setParsedClientEmail(null)
+        setParsedBranchName(null)
 
 
         try {
@@ -196,6 +198,7 @@ export default function NewPolicyPage() {
             // 173: Mapeo automático de resultados
             let updatedClientId = formData.client_id;
             let updatedInsurerId = formData.insurer_id;
+            let updatedBranchId = formData.branch_id;
             let updatedAgentCodeId = formData.agent_code_id;
             let finalCodes: any[] = agentCodes;
 
@@ -274,6 +277,21 @@ export default function NewPolicyPage() {
                 }
             }
 
+            // 5. Smart Matching: Branch (Phase 18)
+            let updatedBranchId = formData.branch_id;
+            if (data.ramo && lines.length > 0) {
+                setParsedBranchName(data.ramo);
+                const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                const aiRamo = normalize(data.ramo);
+                const foundLine = lines.find(l => {
+                    const lName = normalize(l.name);
+                    return lName.includes(aiRamo) || aiRamo.includes(lName);
+                });
+                if (foundLine) {
+                    updatedBranchId = foundLine.id;
+                }
+            }
+
             setFormData(prev => ({
                 ...prev,
                 policy_number: data.policy_number || prev.policy_number,
@@ -290,6 +308,7 @@ export default function NewPolicyPage() {
                 description: data.asset_description || prev.description,
                 client_id: updatedClientId,
                 insurer_id: updatedInsurerId,
+                branch_id: updatedBranchId,
                 agent_code_id: updatedAgentCodeId
             }))
 
@@ -493,9 +512,11 @@ export default function NewPolicyPage() {
         e.preventDefault()
         setLoading(true)
         try {
-            // Clean empty strings to null for UUID foreign keys
+            // Clean empty strings to null for UUID foreign keys (Phase 18 Fix)
             const payload = {
                 ...formData,
+                client_id: formData.client_id || null,
+                insurer_id: formData.insurer_id || null,
                 premium_net: parseNum(formData.premium_net),
                 tax: parseNum(formData.tax),
                 premium_total: parseNum(formData.premium_total),
@@ -900,6 +921,18 @@ export default function NewPolicyPage() {
                                         <option key={l.id} value={l.id}>{l.name}</option>
                                     ))}
                                 </select>
+                                {parsedBranchName && !formData.branch_id && (
+                                    <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                        <span className="text-[10px] font-bold text-amber-700 uppercase">IA Detectó Ramo: "{parsedBranchName}" (No hay coincidencia exacta)</span>
+                                    </div>
+                                )}
+                                {parsedBranchName && formData.branch_id && (
+                                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Ramo Empatado: "{parsedBranchName}"</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
