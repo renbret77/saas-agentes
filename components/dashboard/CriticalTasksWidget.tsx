@@ -39,11 +39,177 @@ export default function CriticalTasksWidget() {
     const [selectedTask, setSelectedTask] = useState<CriticalTask | null>(null)
     const [previewMessage, setPreviewMessage] = useState('')
 
+    const [tasks, setTasks] = useState<CriticalTask[]>([])
+    const [loading, setLoading] = useState(true)
+
     useEffect(() => {
         fetchCriticalTasks()
     }, [])
 
-    // ... (keep fetchCriticalTasks, logNotification, getMessage as they are but I'll need to wrap them and use preview)
+    const fetchCriticalTasks = async () => {
+        try {
+            setLoading(true)
+
+            // 1. Fetch Overdue Installments
+            const { data: installments } = await supabase
+                .from('policy_installments')
+                .select(`
+                    id, 
+                    total_amount, 
+                    due_date, 
+                    installment_number, 
+                    policies (
+                        id,
+                        policy_number,
+                        branch_id,
+                        insurer_id,
+                        payment_method,
+                        clients (id, first_name, last_name, phone, email)
+                    )
+                `)
+                .eq('status', 'Pendiente')
+                .lte('due_date', new Date().toISOString().split('T')[0])
+                .order('due_date', { ascending: true })
+                .limit(5)
+
+            // 2. Fetch Upcoming Renewals (< 15 days)
+            const fifteenDaysFromNow = new Date()
+            fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15)
+
+            const { data: policies } = await supabase
+                .from('policies')
+                .select(`
+                    id,
+                    policy_number,
+                    end_date,
+                    branch_id,
+                    insurer_id,
+                    premium_total,
+                    clients (id, first_name, last_name, phone, email)
+                `)
+                .neq('status', 'Cancelada')
+                .lte('end_date', fifteenDaysFromNow.toISOString().split('T')[0])
+                .gte('end_date', new Date().toISOString().split('T')[0])
+                .order('end_date', { ascending: true })
+                .limit(5)
+
+            // 3. Fetch Last Notifications (using a safe query)
+            const { data: logs } = await supabase
+                .from('notification_logs')
+                .select('policy_id, installment_id, channel, created_at')
+                .order('created_at', { ascending: false })
+
+            const combinedTasks: CriticalTask[] = []
+
+            if (installments) {
+                installments.forEach((inst: any) => {
+                    const policy = inst.policies
+                    const client = policy?.clients
+                    if (!client) return
+
+                    const lastLog = logs?.find((l: any) => l.installment_id === inst.id)
+
+                    combinedTasks.push({
+                        id: inst.id,
+                        type: 'payment',
+                        title: `Pago Vencido: ${policy.policy_number}`,
+                        subtitle: `${client.first_name} ${client.last_name}`,
+                        amount: inst.total_amount,
+                        dueDate: inst.due_date,
+                        clientName: `${client.first_name} ${client.last_name}`,
+                        phone: client.phone || '',
+                        email: client.email || '',
+                        clientId: client.id,
+                        policyId: policy.id,
+                        installmentId: inst.id,
+                        policyData: { ...policy, ...inst },
+                        lastNotified: lastLog ? { channel: lastLog.channel, at: lastLog.created_at } : undefined
+                    })
+                })
+            }
+
+            if (policies) {
+                policies.forEach((pol: any) => {
+                    const client = pol.clients
+                    if (!client) return
+
+                    const lastLog = logs?.find((l: any) => l.policy_id === pol.id && !l.installment_id)
+
+                    combinedTasks.push({
+                        id: pol.id,
+                        type: 'renewal',
+                        title: `Renovación: ${pol.policy_number}`,
+                        subtitle: `${client.first_name} ${client.last_name}`,
+                        amount: pol.premium_total,
+                        dueDate: pol.end_date,
+                        clientName: `${client.first_name} ${client.last_name}`,
+                        phone: client.phone || '',
+                        email: client.email || '',
+                        clientId: client.id,
+                        policyId: pol.id,
+                        policyData: pol,
+                        lastNotified: lastLog ? { channel: lastLog.channel, at: lastLog.created_at } : undefined
+                    })
+                })
+            }
+
+            setTasks(combinedTasks.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()))
+        } catch (err) {
+            console.error('Error fetching critical tasks:', err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const logNotification = async (task: CriticalTask, channel: string) => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        await supabase.from('notification_logs').insert({
+            user_id: user.id,
+            client_id: task.clientId,
+            policy_id: task.policyId,
+            installment_id: task.installmentId,
+            channel,
+            notification_type: task.type
+        })
+
+        fetchCriticalTasks()
+    }
+
+    const getMessage = (task: CriticalTask) => {
+        if (task.type === 'payment') {
+            const d = task.policyData
+            const today = new Date()
+            const dueDate = new Date(task.dueDate)
+            const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+            return getCollectionMessage(
+                task.clientName,
+                d.branch_id || 'Seguros',
+                d.insurer_id || 'Aseguradora',
+                d.policy_number,
+                task.amount || 0,
+                d.payment_method || 'Contado',
+                diffDays,
+                new Date().toISOString(),
+                task.dueDate,
+                '',
+                '',
+                d.installment_number
+            )
+        } else {
+            const d = task.policyData
+            return getRenewalMessage(
+                task.clientName,
+                d.branch_id || 'Seguros',
+                d.insurer_id || 'Aseguradora',
+                d.policy_number,
+                task.dueDate,
+                task.amount
+            )
+        }
+    }
 
     const handleOpenPreview = (task: CriticalTask) => {
         const message = getMessage(task)
