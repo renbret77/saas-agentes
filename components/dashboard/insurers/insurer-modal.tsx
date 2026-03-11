@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Save, User, Settings, Shield, Plus, Trash2, Building2 } from "lucide-react"
+import { X, Save, User, Settings, Shield, Plus, Trash2, Building2, Calendar } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 interface Insurer {
@@ -10,6 +10,8 @@ interface Insurer {
     alias: string
     rfc: string
     website: string
+    grace_days_first?: number
+    grace_days_subsequent?: number
 }
 
 interface InsurerModalProps {
@@ -34,7 +36,9 @@ export function InsurerModal({ isOpen, onClose, onSuccess, insurerToEdit }: Insu
         name: "",
         alias: "",
         rfc: "",
-        website: ""
+        website: "",
+        grace_days_first: 0,
+        grace_days_subsequent: 0
     })
 
     // Load data on edit
@@ -45,7 +49,9 @@ export function InsurerModal({ isOpen, onClose, onSuccess, insurerToEdit }: Insu
                 name: insurerToEdit.name,
                 alias: insurerToEdit.alias || "",
                 rfc: insurerToEdit.rfc || "",
-                website: insurerToEdit.website || ""
+                website: insurerToEdit.website || "",
+                grace_days_first: (insurerToEdit as any).grace_days_first || 0,
+                grace_days_subsequent: (insurerToEdit as any).grace_days_subsequent || 0
             })
         } else {
             // Reset on new
@@ -69,7 +75,9 @@ export function InsurerModal({ isOpen, onClose, onSuccess, insurerToEdit }: Insu
                         name: formData.name,
                         alias: formData.alias,
                         rfc: formData.rfc,
-                        website: formData.website
+                        website: formData.website,
+                        grace_days_first: formData.grace_days_first,
+                        grace_days_subsequent: formData.grace_days_subsequent
                     })
                     .eq('id', formData.id)
                 if (error) throw error
@@ -80,7 +88,9 @@ export function InsurerModal({ isOpen, onClose, onSuccess, insurerToEdit }: Insu
                         name: formData.name,
                         alias: formData.alias,
                         rfc: formData.rfc,
-                        website: formData.website
+                        website: formData.website,
+                        grace_days_first: formData.grace_days_first,
+                        grace_days_subsequent: formData.grace_days_subsequent
                     }])
                 if (error) throw error
             }
@@ -188,6 +198,36 @@ export function InsurerModal({ isOpen, onClose, onSuccess, insurerToEdit }: Insu
                                         className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
                                         placeholder="https://..."
                                     />
+                                </div>
+                                <div className="space-y-4 col-span-1 md:col-span-2 pt-4 border-t border-slate-100">
+                                    <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-emerald-600" />
+                                        Periodos de Gracia (Días Naturales)
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-6 bg-emerald-50/30 p-4 rounded-xl border border-emerald-100/50">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">💰 Primer Pago</label>
+                                            <input
+                                                type="number"
+                                                value={formData.grace_days_first}
+                                                onChange={(e) => setFormData({ ...formData, grace_days_first: parseInt(e.target.value) || 0 })}
+                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-bold text-emerald-700"
+                                                placeholder="Ej. 30"
+                                            />
+                                            <p className="text-[10px] text-slate-400">Días para el recibo inicial</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">🔄 Subsecuentes</label>
+                                            <input
+                                                type="number"
+                                                value={formData.grace_days_subsequent}
+                                                onChange={(e) => setFormData({ ...formData, grace_days_subsequent: parseInt(e.target.value) || 0 })}
+                                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-bold text-emerald-700"
+                                                placeholder="Ej. 30"
+                                            />
+                                            <p className="text-[10px] text-slate-400">Días para resto de recibos</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
