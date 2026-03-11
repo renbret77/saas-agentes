@@ -83,11 +83,11 @@ export const getCollectionMessage = (
     }
 
     bodyItems.push(
-        `📆 *Periodo:* ${formatDate(startDate)} al ${formatDate(targetDate)}`,
+        `📅 *Periodo:* ${formatDate(startDate)} al ${formatDate(targetDate)}`,
         `💳 *Método:* ${paymentMethod}`
     )
 
-    bodyItems.push(`\n💵 *TOTAL A PAGAR:* *${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`)
+    bodyItems.push(`\n💰 *TOTAL A PAGAR: ${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`)
 
     const body = bodyItems.join('\n')
 
@@ -111,7 +111,7 @@ export const getCollectionMessage = (
 }
 
 /**
- * Genera el copy de WhatsApp para Renovaciones (v16)
+ * Genera el copy de WhatsApp para Renovaciones (v17)
  */
 export const getRenewalMessage = (
     clientName: string,
@@ -122,7 +122,7 @@ export const getRenewalMessage = (
     estimatedPremium?: number,
     currencySymbol: string = '$',
 ) => {
-    return `🕒 *AVISO DE RENOVACIÓN* 🕒
+    return `🕒 *AVISO DE RENOVACIÓN*
 
 Hola *${clientName}*, te saludo con gusto. 👋
 
@@ -133,7 +133,7 @@ Te informo que tu póliza está próxima a vencer y es momento de asegurar la co
 🔢 *Póliza:* *${policyNumber}*
 📅 *Vence el:* *${formatDate(endDate)}*
 
-${estimatedPremium ? `💵 *Prima estimada:* *${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*\n` : ''}
+${estimatedPremium ? `💰 *Prima estimada: ${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*\n` : ''}
 ¿Gustas que procedamos con la renovación automática o prefieres que revisemos otras opciones de costo/cobertura? 
 
 Quedo atento para apoyarte. 😊`

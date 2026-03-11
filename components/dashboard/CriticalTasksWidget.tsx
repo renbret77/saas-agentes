@@ -64,7 +64,9 @@ export default function CriticalTasksWidget() {
                         branch_id,
                         insurer_id,
                         payment_method,
-                        clients (id, first_name, last_name, phone, email)
+                        clients (id, first_name, last_name, phone, email),
+                        insurers (name),
+                        insurance_lines (name)
                     )
                 `)
                 .eq('status', 'Pendiente')
@@ -85,7 +87,9 @@ export default function CriticalTasksWidget() {
                     branch_id,
                     insurer_id,
                     premium_total,
-                    clients (id, first_name, last_name, phone, email)
+                    clients (id, first_name, last_name, phone, email),
+                    insurers (name),
+                    insurance_lines (name)
                 `)
                 .neq('status', 'Cancelada')
                 .lte('end_date', fifteenDaysFromNow.toISOString().split('T')[0])
@@ -178,33 +182,37 @@ export default function CriticalTasksWidget() {
     }
 
     const getMessage = (task: CriticalTask) => {
+        const d = task.policyData
+        const p = d.policies || d // Handle both installment and policy structure
+
+        const insurerName = p.insurers?.name || p.insurer_id || 'Aseguradora'
+        const branchName = p.insurance_lines?.name || p.branch_id || 'Seguros'
+
         if (task.type === 'payment') {
-            const d = task.policyData
             const today = new Date()
             const dueDate = new Date(task.dueDate)
             const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
             return getCollectionMessage(
                 task.clientName,
-                d.branch_id || 'Seguros',
-                d.insurer_id || 'Aseguradora',
-                d.policy_number,
+                branchName,
+                insurerName,
+                p.policy_number,
                 task.amount || 0,
-                d.payment_method || 'Contado',
+                p.payment_method || 'Contado',
                 diffDays,
                 new Date().toISOString(),
                 task.dueDate,
+                p.sub_branch || '',
                 '',
-                '',
-                d.installment_number
+                p.installment_number
             )
         } else {
-            const d = task.policyData
             return getRenewalMessage(
                 task.clientName,
-                d.branch_id || 'Seguros',
-                d.insurer_id || 'Aseguradora',
-                d.policy_number,
+                branchName,
+                insurerName,
+                p.policy_number,
                 task.dueDate,
                 task.amount
             )
