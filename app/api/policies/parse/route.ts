@@ -50,37 +50,41 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const base64Data = buffer.toString("base64");
 
-        // 2. Prompt de extracción técnica - "Extraction v4" (SICAS Killer)
-        // 2. Prompt de extracción técnica - "Extraction v5" (Branch Intelligence)
+        // 2. Prompt de extracción técnica - "Extraction v6" (Precision & SICAS Master)
         const prompt = `
-        ANALISTA DE PÓLIZAS IA (Executive Edition v5 "Branch Intelligence")
-        Extrae la información de esta carátula de seguro de forma estructurada.
+        ANALISTA DE PÓLIZAS IA (Executive Edition v6 "Precision & SICAS Master")
+        Tu objetivo es extraer con exactitud quirúrgica la información de esta carátula de seguro.
+        
+        INSTRUCCIONES CRÍTICAS:
+        1. insurer_name: Extrae el nombre comercial o razón social de la aseguradora (ej. Quálitas, GNP, AXA, Chubb, HDI). Busca logotipos si el texto es ambiguo.
+        2. agent_code: Busca términos como "Clave de Agente", "Conducto", "Clave Prod.", "Código de Agente" o simplemente una serie numérica/alfanumérica asociada al nombre del agente.
+        3. personality_note: Sé breve, profesional y sofisticado. Maximiza el valor percibido del trabajo del agente.
 
         CAMPOS REQUERIDOS EN JSON:
-        - policy_number: El número de póliza tal cual aparece.
-        - insurer_name: Nombre de la aseguradora (ej. GNP, Chubb, Monterrey).
-        - client_name: Nombre completo del asegurado o contratante.
-        - rfc: El RFC del asegurado (ej. VIDV720407N2A).
-        - client_phone: Teléfono de contacto que aparezca en la póliza.
-        - client_email: Correo electrónico que aparezca en la póliza.
-        - ramo: El ramo de la póliza (ej. Vida, GMM, Autos, Daños, Transporte).
-        - agent_name: Nombre del agente o promotoría.
-        - agent_code: Número, clave o clave interna de agente.
-        - asset_description: Descripción detallada del bien asegurado (ej. Nissan Altima 2010, Local Comercial #4, etc).
-        - sub_ramo: Plan o sub-ramo específico (ej. Cobertura Amplia, Elite GMM).
-        - start_date: Inicio de vigencia en formato ISO (YYYY-MM-DD).
-        - end_date: Fin de vigencia en formato ISO (YYYY-MM-DD).
+        - policy_number: El número de póliza exacto.
+        - insurer_name: Nombre de la aseguradora (ej. "Qualitas", "GNP", "Chubb").
+        - client_name: Nombre completo del asegurado.
+        - rfc: El RFC del asegurado (12 o 13 caracteres).
+        - client_phone: Teléfono detectado.
+        - client_email: Email detectado.
+        - ramo: El ramo principal (Vida, GMM, Autos, Daños, Transporte).
+        - agent_name: Nombre completo del agente o despacho.
+        - agent_code: Clave, número o código de agente (Indispensable para vinculación).
+        - asset_description: Lo que se está asegurando (ej. "Nissan Sentra 2022", "Residencia en Calle Olivos").
+        - sub_ramo: Plan específico de la póliza.
+        - start_date: Inicio de vigencia (YYYY-MM-DD).
+        - end_date: Fin de vigencia (YYYY-MM-DD).
         - currency: "MXN", "USD", "EUR" o "UDI".
         - payment_method: "Contado", "Semestral", "Trimestral" o "Mensual".
-        - premium_net: Prima neta del recibo actual o del año (número decimal).
-        - policy_fee: Gasto de expedición / Derecho de póliza (número decimal).
-        - surcharge_amount: Recargo financiero (número decimal).
-        - vat_amount: IVA (número decimal).
-        - premium_total: Prima total (número decimal).
-        - first_installment_extract: Si el documento describe el desglose del PRIMER RECIBO, extrae el TOTAL DE ESE PRIMER RECIBO (ej. 3338.03). 
-        - personality_note: Una breve nota ejecutiva (máximo 15 palabras) sobre la calidad de la póliza o un saludo sofisticado al agente.
+        - premium_net: Prima neta antes de impuestos.
+        - policy_fee: Derecho de póliza / Gasto de expedición.
+        - surcharge_amount: Recargo financiero por pago fraccionado.
+        - vat_amount: IVA.
+        - premium_total: Importe total a pagar.
+        - first_installment_extract: Total del primer recibo si viene desglosado.
+        - personality_note: Saludo ejecutivo breve (máximo 15 palabras).
 
-        Responde únicamente con el objeto JSON. No incluyas explicaciones adicionales fuera del JSON.`;
+        Responde ÚNICAMENTE el objeto JSON sin texto adicional.`;
 
         // 3. Generar contenido con Gemini
         const result = await model.generateContent([

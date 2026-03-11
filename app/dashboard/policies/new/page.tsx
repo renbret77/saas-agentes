@@ -175,6 +175,7 @@ export default function NewPolicyPage() {
             })
 
             const data = await res.json()
+            console.log("AI Extraction Result:", data);
 
             if (!res.ok) {
                 throw new Error(data.error || 'Error al analizar la póliza')
@@ -204,13 +205,11 @@ export default function NewPolicyPage() {
             let updatedInsurerId = formData.insurer_id;
             let updatedBranchId = formData.branch_id;
             let updatedAgentCodeId = formData.agent_code_id;
-            let finalCodes: any[] = agentCodes;
+            const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
             // 3. Smart Matching: Fuzzy search (Phase 17)
             if (data.client_name) {
                 setParsedClientName(data.client_name)
-
-                const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                 const aiNameNorm = normalize(data.client_name);
 
                 const candidates = clients.map(c => {
@@ -219,7 +218,7 @@ export default function NewPolicyPage() {
                     let score = 0;
                     if (fullName === aiNameNorm) score = 100;
                     else if (aiNameNorm.includes(fullName) || fullName.includes(aiNameNorm)) score = 80;
-                    // Simple shared words check
+                    
                     const aiWords = aiNameNorm.split(/\s+/);
                     const clientWords = fullName.split(/\s+/);
                     const shared = aiWords.filter(w => clientWords.includes(w));
@@ -238,37 +237,54 @@ export default function NewPolicyPage() {
                 }
             }
 
-            // 4. Intentar empatar aseguradora si viene en el texto
+            // 4. Smart Matching: Insurer (Fuzzy & Normalization)
             if (data.insurer_name && insurers.length > 0) {
-                const foundInsurer = insurers.find(i =>
-                    i.name.toLowerCase().includes(data.insurer_name.toLowerCase()) ||
-                    data.insurer_name.toLowerCase().includes(i.name.toLowerCase()) ||
-                    (i.alias && data.insurer_name.toLowerCase().includes(i.alias.toLowerCase()))
-                )
-                if (foundInsurer) {
-                    updatedInsurerId = foundInsurer.id
-                    // Cargar claves de la aseguradora encontrada (v74 Fix Build)
+                const aiInsurerNorm = normalize(data.insurer_name);
+                
+                const insurerCandidates = insurers.map(i => {
+                    const iName = normalize(i.name);
+                    const iAlias = i.alias ? normalize(i.alias) : "";
+                    
+                    let score = 0;
+                    if (iName === aiInsurerNorm || iAlias === aiInsurerNorm) score = 100;
+                    else if (iName.includes(aiInsurerNorm) || aiInsurerNorm.includes(iName) || 
+                             (iAlias && (iAlias.includes(aiInsurerNorm) || aiInsurerNorm.includes(iAlias)))) {
+                        score = 90;
+                    } else {
+                        // Word-based scoring for insurers
+                        const aiWords = aiInsurerNorm.split(/\s+/).filter(w => w.length > 2);
+                        const iWords = iName.split(/\s+/).concat(iAlias.split(/\s+/)).filter(w => w.length > 2);
+                        const shared = aiWords.filter(w => iWords.includes(w));
+                        if (shared.length > 0) {
+                            score = (shared.length / Math.max(aiWords.length, iWords.length)) * 85;
+                        }
+                    }
+                    return { ...i, score };
+                }).filter(i => i.score > 40).sort((a, b) => b.score - a.score);
+
+                if (insurerCandidates.length > 0) {
+                    const bestInsurer = insurerCandidates[0];
+                    updatedInsurerId = bestInsurer.id;
+
+                    // Load codes for the matched insurer
                     const { data: codes } = await supabase
                         .from('agent_codes')
                         .select('id, code, description')
-                        .eq('insurer_id', foundInsurer.id) as { data: any[] | null }
+                        .eq('insurer_id', bestInsurer.id) as { data: any[] | null }
 
                     if (codes) {
-                        finalCodes = codes;
                         setAgentCodes(codes)
-
-                        // 5. Intentar empatar clave de agente (v73)
+                        // 5. Try to match agent code
                         if (data.agent_code) {
                             setParsedAgentCode(data.agent_code)
                             setParsedAgentName(data.agent_name || null)
-                            const foundCode = (codes as any[]).find(c =>
-                                c.code.toLowerCase().includes(data.agent_code.toLowerCase()) ||
-                                data.agent_code.toLowerCase().includes(c.code.toLowerCase())
+                            const foundCode = codes.find(c =>
+                                normalize(c.code).includes(normalize(data.agent_code)) ||
+                                normalize(data.agent_code).includes(normalize(c.code))
                             )
                             if (foundCode) {
                                 updatedAgentCodeId = foundCode.id
                             } else {
-                                // No existe, preparar para pre-captura
                                 setNewAgentData({
                                     code: data.agent_code,
                                     broker_name: '',
