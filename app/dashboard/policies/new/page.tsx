@@ -285,9 +285,16 @@ export default function NewPolicyPage() {
                 setParsedBranchName(data.ramo);
                 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                 const aiRamo = normalize(data.ramo);
+
+                // v19.3: Improved matching for "Autos" / "Vida" etc.
                 const foundLine = lines.find(l => {
                     const lName = normalize(l.name);
-                    return lName.includes(aiRamo) || aiRamo.includes(lName);
+                    if (lName.includes(aiRamo) || aiRamo.includes(lName)) return true;
+                    // Keywords manuales (Fuzzy)
+                    if (aiRamo.includes('auto') && lName.includes('automovil')) return true;
+                    if (aiRamo.includes('medic') && lName.includes('gastos medicos')) return true;
+                    if (aiRamo.includes('dañ') && lName.includes('daños')) return true;
+                    return false;
                 });
                 if (foundLine) {
                     updatedBranchId = foundLine.id;
@@ -320,11 +327,13 @@ export default function NewPolicyPage() {
             if (data.first_installment_extract) setParsedFirstInstallment(parseNum(data.first_installment_extract))
 
 
-            // Notificamos al usuario del éxito
-            if (data.client_name && !formData.client_id) {
-                alert(`¡Póliza analizada! IA detectó al cliente: "${data.client_name}". Valida si coincide con tu base de datos o crea uno nuevo.`)
+            // Notificamos al usuario del éxito (v19.4)
+            if (data.client_name && !updatedClientId) {
+                alert(`🔍 IA detectó al cliente: "${data.client_name}"\n\n⚠️ No encontramos un ID exacto. Por favor búscalo en la lista o usa el botón "Registrar como Nuevo" en el Paso 1.`)
+            } else if (updatedClientId && updatedInsurerId && updatedBranchId) {
+                alert('✨ EXCELENTE: IA vinculó todos los datos (Cliente, Aseguradora y Ramo). ¡Revisa y continúa!')
             } else {
-                alert('¡Póliza analizada y carátula cargada con éxito! Revisa los detalles extraídos.')
+                alert('✅ Póliza cargada. Algunos datos requieren selección manual (revisa los indicadores rojos).')
             }
 
             // Saltamos al paso 2 para que vea los detalles técnicos extraídos
@@ -688,7 +697,7 @@ export default function NewPolicyPage() {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 06:55 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 07:15 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Nueva Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>
@@ -847,6 +856,7 @@ export default function NewPolicyPage() {
                                                 if (newClient) {
                                                     setClients(prev => [...prev, newClient]);
                                                     setFormData(prev => ({ ...prev, client_id: newClient.id }));
+                                                    alert(`✅ Cliente "${newClient.first_name}" registrado y vinculado.`);
                                                 }
                                             }}
                                         >
@@ -956,8 +966,8 @@ export default function NewPolicyPage() {
 
                                                     if (data) {
                                                         setAgentCodes(prev => [...prev, data])
-                                                        setFormData({ ...formData, agent_code_id: data.id })
-                                                        alert('Clave de agente guardada con éxito')
+                                                        setFormData(prev => ({ ...prev, agent_code_id: data.id }))
+                                                        alert('✅ Clave de agente guardada y vinculada con éxito.')
                                                     }
                                                 }}
                                                 className="bg-indigo-600 text-white text-[10px] px-2 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-all uppercase tracking-widest"
@@ -1481,7 +1491,22 @@ export default function NewPolicyPage() {
                     {step < 4 ? (
                         <button
                             type="button"
-                            onClick={() => setStep(step + 1)}
+                            onClick={() => {
+                                // v19.4: Validación por pasos
+                                if (step === 1) {
+                                    if (!formData.client_id || !formData.insurer_id) {
+                                        alert('⚠️ Antes de avanzar, asegúrate de haber seleccionado o registrado al Cliente y la Aseguradora.');
+                                        return;
+                                    }
+                                }
+                                if (step === 2) {
+                                    if (!formData.policy_number || !formData.branch_id) {
+                                        alert('⚠️ Es obligatorio contar con el Número de Póliza y el Ramo del seguro para continuar.');
+                                        return;
+                                    }
+                                }
+                                setStep(step + 1);
+                            }}
                             className="bg-slate-900 hover:bg-black text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95 translate-x-1"
                         >
                             Siguiente
