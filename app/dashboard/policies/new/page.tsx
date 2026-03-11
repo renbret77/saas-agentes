@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { calculateInstallments } from "@/lib/installment-engine"
@@ -512,6 +512,20 @@ export default function NewPolicyPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        // --- VALIDACIÓN DE CAMPOS OBLIGATORIOS (v19.2) ---
+        const missingFields = []
+        if (!formData.client_id || formData.client_id.trim() === '') missingFields.push('Cliente')
+        if (!formData.insurer_id || formData.insurer_id.trim() === '') missingFields.push('Aseguradora')
+        if (!formData.policy_number || formData.policy_number.trim() === '') missingFields.push('Número de Póliza')
+        if (!formData.branch_id || formData.branch_id.trim() === '') missingFields.push('Ramo')
+
+        if (missingFields.length > 0) {
+            alert(`⚠️ No se puede guardar: Faltan campos obligatorios: ${missingFields.join(', ')}. Por favor revisa el Paso 1 y 2.`)
+            setStep(1) // Regresar al inicio para corregir
+            return
+        }
+
         setLoading(true)
         try {
             // Clean empty strings to null for UUID foreign keys (Phase 18 Fix)
@@ -674,7 +688,7 @@ export default function NewPolicyPage() {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 06:45 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 06:55 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Nueva Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>
@@ -755,7 +769,17 @@ export default function NewPolicyPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 block ml-1">Cliente Asegurado</label>
+                                <label className="text-sm font-bold text-slate-700 block ml-1 flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <span>Cliente Asegurado</span>
+                                        {formData.client_id && parsedClientName && (
+                                            <span className="text-[9px] text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 animate-in fade-in zoom-in duration-500">
+                                                <CheckCircle2 className="w-3 h-3" /> IA EMPATADO
+                                            </span>
+                                        )}
+                                    </div>
+                                    {!formData.client_id && <span className="text-[10px] text-rose-500 font-black animate-pulse flex items-center gap-1"><AlertCircle className="w-3 h-3" /> REQUERIDO</span>}
+                                </label>
                                 <select
                                     required
                                     className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
@@ -863,7 +887,17 @@ export default function NewPolicyPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 block ml-1">Compañía Aseguradora</label>
+                                <label className="text-sm font-bold text-slate-700 block ml-1 flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <span>Compañía Aseguradora</span>
+                                        {formData.insurer_id && formData.insurer_id !== '' && (
+                                            <span className="text-[9px] text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 animate-in fade-in zoom-in duration-500">
+                                                <CheckCircle2 className="w-3 h-3" /> IA EMPATADO
+                                            </span>
+                                        )}
+                                    </div>
+                                    {!formData.insurer_id && <span className="text-[10px] text-rose-500 font-black animate-pulse flex items-center gap-1"><AlertCircle className="w-3 h-3" /> REQUERIDO</span>}
+                                </label>
                                 <select
                                     required
                                     className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
@@ -982,7 +1016,10 @@ export default function NewPolicyPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700 block ml-1">Ramo del Seguro</label>
+                                <label className="text-sm font-bold text-slate-700 block ml-1 flex justify-between items-center">
+                                    <span>Ramo del Seguro</span>
+                                    {!formData.branch_id && <span className="text-[10px] text-rose-500 font-black animate-pulse flex items-center gap-1"><AlertCircle className="w-3 h-3" /> REQUERIDO</span>}
+                                </label>
                                 <select
                                     required
                                     className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
