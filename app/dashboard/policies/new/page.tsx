@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { calculateInstallments } from "@/lib/installment-engine"
@@ -250,7 +250,7 @@ export default function NewPolicyPage() {
                     const { data: codes } = await supabase
                         .from('agent_codes')
                         .select('id, code, description')
-                        .eq('insurer_id', foundInsurer.id)
+                        .eq('insurer_id', foundInsurer.id) as { data: any[] | null }
 
                     if (codes) {
                         finalCodes = codes;
@@ -260,7 +260,7 @@ export default function NewPolicyPage() {
                         if (data.agent_code) {
                             setParsedAgentCode(data.agent_code)
                             setParsedAgentName(data.agent_name || null)
-                            const foundCode = codes.find(c =>
+                            const foundCode = (codes as any[]).find(c =>
                                 c.code.toLowerCase().includes(data.agent_code.toLowerCase()) ||
                                 data.agent_code.toLowerCase().includes(c.code.toLowerCase())
                             )
@@ -281,7 +281,6 @@ export default function NewPolicyPage() {
             }
 
             // 5. Smart Matching: Branch (Phase 18)
-            let updatedBranchId = formData.branch_id;
             if (data.ramo && lines.length > 0) {
                 setParsedBranchName(data.ramo);
                 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -517,15 +516,22 @@ export default function NewPolicyPage() {
         try {
             // Clean empty strings to null for UUID foreign keys (Phase 18 Fix)
             const payload = {
-                ...formData,
-                client_id: formData.client_id || null,
-                insurer_id: formData.insurer_id || null,
+                policy_number: formData.policy_number,
+                status: formData.status,
+                sub_branch: formData.sub_branch || null,
+                start_date: formData.start_date,
+                end_date: formData.end_date,
+                issue_date: formData.issue_date || null,
+                currency: formData.currency,
+                payment_method: formData.payment_method,
+                notes: formData.notes || null,
+                client_id: (formData.client_id && formData.client_id.trim() !== '') ? formData.client_id : null,
+                insurer_id: (formData.insurer_id && formData.insurer_id.trim() !== '') ? formData.insurer_id : null,
+                agent_code_id: (formData.agent_code_id && formData.agent_code_id.trim() !== '') ? formData.agent_code_id : null,
+                branch_id: (formData.branch_id && formData.branch_id.trim() !== '') ? formData.branch_id : null,
                 premium_net: parseNum(formData.premium_net),
                 tax: parseNum(formData.tax),
                 premium_total: parseNum(formData.premium_total),
-                issue_date: formData.issue_date || null,
-                agent_code_id: formData.agent_code_id || null,
-                branch_id: formData.branch_id || null,
                 total_installments: parseInt(formData.total_installments) || 1,
                 current_installment: parseInt(formData.current_installment) || 1,
                 payment_link: formData.payment_link || null,
@@ -668,7 +674,7 @@ export default function NewPolicyPage() {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.03-03-2026 02:00 AM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 06:45 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Nueva Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>
@@ -804,7 +810,7 @@ export default function NewPolicyPage() {
                                             onClick={async () => {
                                                 // Quick Create Logic
                                                 const [first, ...rest] = (parsedClientName || '').split(' ');
-                                                const { data: newClient, error } = await supabase.from('clients').insert({
+                                                const { data: newClient, error } = await (supabase.from('clients') as any).insert({
                                                     user_id: (await supabase.auth.getUser()).data.user?.id,
                                                     first_name: first,
                                                     last_name: rest.join(' '),
@@ -837,7 +843,7 @@ export default function NewPolicyPage() {
                                                 if (parsedClientPhone) updates.phone = parsedClientPhone;
                                                 if (parsedClientEmail) updates.email = parsedClientEmail;
 
-                                                const { error } = await supabase.from('clients').update(updates).eq('id', formData.client_id);
+                                                const { error } = await (supabase.from('clients') as any).update(updates).eq('id', formData.client_id);
                                                 if (!error) {
                                                     setSyncSummary({
                                                         rfc: !!parsedClientRFC,
