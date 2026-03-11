@@ -25,7 +25,7 @@ export class EvolutionService {
         const response = await fetch(`${this.baseUrl}${endpoint}`, {
             method,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
                 'apikey': this.apiKey
             },
             body: body ? JSON.stringify(body) : undefined
