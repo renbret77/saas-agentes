@@ -75,7 +75,7 @@ export const getCollectionMessage = (
         `🏢 *Aseguradora:* ${insurerName}`,
         `🛡️ *Ramo:* ${policyType}`,
         `📄 *Descripción:* ${subBranch || 'Cobertura Original'}`,
-        `🔢 *Póliza:* \`${policyNumber}\``
+        `🔢 *Póliza:* *${policyNumber}*`
     ]
 
     if (totalInstallments && totalInstallments > 1) {
@@ -130,10 +130,10 @@ Te informo que tu póliza está próxima a vencer y es momento de asegurar la co
 
 🏢 *Aseguradora:* ${insurerName}
 🛡️ *Ramo:* ${policyType}
-🔢 *Póliza:* \`${policyNumber}\`
+🔢 *Póliza:* *${policyNumber}*
 📅 *Vence el:* *${formatDate(endDate)}*
 
-${estimatedPremium ? `💵 *Prima estimada:* ${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}\n` : ''}
+${estimatedPremium ? `💵 *Prima estimada:* *${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*\n` : ''}
 ¿Gustas que procedamos con la renovación automática o prefieres que revisemos otras opciones de costo/cobertura? 
 
 Quedo atento para apoyarte. 😊`

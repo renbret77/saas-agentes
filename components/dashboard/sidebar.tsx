@@ -175,13 +175,13 @@ export function Sidebar() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
                             </span>
-                            BUILD 10/MAR 21:05
+                            BUILD 10/MAR 21:20
                         </span>
                     </div>
                 </Link>
 
                 {/* Navigation */}
-                <nav className="flex-1 py-6 px-3 space-y-1">
+                <nav className="py-6 px-3 space-y-1">
                     {filteredMenuItems.map((item) => {
                         const isActive = pathname === item.href
                         const isProFeature = PRO_FEATURES.includes(item.href)
