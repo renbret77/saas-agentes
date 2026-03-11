@@ -200,12 +200,12 @@ export default function CriticalTasksWidget() {
                 p.policy_number,
                 task.amount || 0,
                 p.payment_method || 'Contado',
-                diffDays,
-                new Date().toISOString(),
                 task.dueDate,
+                p.installment_number || 1,
+                p.total_installments || 1,
+                0, // Grace days default
                 p.sub_branch || '',
-                '',
-                p.installment_number
+                '$'
             )
         } else {
             return getRenewalMessage(

@@ -114,21 +114,12 @@ export async function GET(request: Request) {
                 policy.policy_number,
                 amount,
                 paymentMethod,
-                diffDays,
-                policy.start_date,
                 targetDate.toISOString(),
+                policy.current_installment || 1,
+                policy.total_installments || 1,
+                0, // Grace days (default 0 for automation unless we fetch config)
                 policy.sub_branch,
-                policy.notes,
-                policy.current_installment,
-                policy.total_installments,
-                policy.payment_link,
-                currencySymbol,
-                {
-                    policyFee: Number(policy.policy_fee) || 0,
-                    surchargeAmount: Number(policy.surcharge_amount) || 0,
-                    discountAmount: Number(policy.discount_amount) || 0,
-                    vatAmount: Number(policy.vat_amount) || 0
-                }
+                currencySymbol
             )
 
             if (!messageStr) return null
