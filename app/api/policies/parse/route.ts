@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
         - payment_method: "Contado", "Semestral", "Trimestral" o "Mensual".
         - premium_net: Prima neta antes de impuestos.
         - policy_fee: Derecho de póliza / Gasto de expedición.
-        - surcharge_amount: Recargo financiero por pago fraccionado.
+        - surcharge_amount: Recargo financiero por pago fraccionado (número positivo).
+        - discount_amount: Descuentos otorgados (número positivo).
         - vat_amount: IVA.
         - premium_total: Importe total a pagar.
         - first_installment_extract: Total del primer recibo si viene desglosado.

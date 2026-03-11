@@ -327,7 +327,10 @@ export default function NewPolicyPage() {
                 payment_method: data.payment_method || prev.payment_method,
                 premium_net: data.premium_net ? data.premium_net.toString() : prev.premium_net,
                 policy_fee: data.policy_fee ? data.policy_fee.toString() : prev.policy_fee,
-                surcharge_amount: data.surcharge_amount ? data.surcharge_amount.toString() : prev.surcharge_amount,
+                surcharge_amount: (parseNum(data.surcharge_amount) >= 0 && data.surcharge_amount) ? data.surcharge_amount.toString() : prev.surcharge_amount,
+                discount_amount: (parseNum(data.surcharge_amount) < 0) 
+                    ? Math.abs(parseNum(data.surcharge_amount)).toString() 
+                    : (data.discount_amount ? data.discount_amount.toString() : prev.discount_amount),
                 vat_amount: data.vat_amount ? data.vat_amount.toString() : prev.vat_amount,
                 premium_total: data.premium_total ? data.premium_total.toString() : prev.premium_total,
                 sub_branch: data.sub_ramo || prev.sub_branch,
