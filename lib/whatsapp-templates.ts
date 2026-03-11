@@ -18,87 +18,84 @@ export const generateWhatsAppLink = (phone: string, text: string) => {
 }
 
 /**
- * Genera el copy de WhatsApp basado en las reglas de negocio (v24 - Formato Rico Premium)
+ * Genera el copy de WhatsApp basado en las reglas de negocio (v25 - Formato Premium Contextual)
  */
-export const getCollectionMessage = (
+export const getPremiumCollectionMessage = (
     clientName: string,
     policyType: string,
     insurerName: string,
     policyNumber: string,
     amount: number,
     paymentMethod: PaymentMethod,
-    daysRemaining: number,
-    startDate: string,
     targetDate: string,
+    installmentNumber: number,
+    totalInstallments: number,
+    graceDays: number = 0,
     subBranch?: string,
-    notes?: string,
-    currentInstallment?: number,
-    totalInstallments?: number,
-    paymentLink?: string,
     currencySymbol: string = '$'
 ) => {
-    const isAnual = paymentMethod === 'Contado' || paymentMethod === 'Anual'
-    const isDomiciliado = paymentMethod === 'Domiciliado' || paymentMethod?.toLowerCase().includes('tarjeta')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-    // Configuración de Iconos y Estados
-    let statusIcon = '📅'
-    let alertTitle = 'RECORDATORIO DE PAGO'
-    let footerMessage = '¿Te comparto la línea de captura para pago? 😊'
+    const dueDate = new Date(targetDate)
+    dueDate.setHours(0, 0, 0, 0)
 
-    if (daysRemaining <= 0) {
-        statusIcon = '🚨'
-        alertTitle = 'AVISO DE COBRO URGENTE'
-        footerMessage = 'Favor de confirmar su pago a la brevedad para evitar la cancelación. 🙏'
-    } else if (daysRemaining <= 7) {
-        statusIcon = '🕒'
-        alertTitle = 'PENDIENTE DE PAGO'
+    const limitDate = new Date(dueDate)
+    limitDate.setDate(limitDate.getDate() + graceDays)
+
+    const diffTime = dueDate.getTime() - today.getTime()
+    const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    const isGracePeriod = today > dueDate && today <= limitDate
+    const isOverdue = today > limitDate
+    const isImminent = daysUntilDue >= 0 && daysUntilDue <= 3
+
+    // Configuración de Estética Premium según Contexto
+    let statusHeader = '💎 *PORTAL DE PROTECCIÓN PREMIUM*'
+    let mainAction = 'RECORDATORIO DE PAGO'
+    let alertIcon = '✨'
+    let contextMessage = `Hola *${clientName}*, nos ponemos en contacto contigo para saludarte y recordarte que tu protección requiere atención. 🤝`
+    let urgencyNote = ''
+
+    if (isOverdue) {
+        alertIcon = '🚨'
+        mainAction = 'PÓLIZA EN RIESGO DE CANCELACIÓN'
+        contextMessage = `*¡ATENCIÓN URGENTE!* *${clientName}*, el periodo de gracia para tu recibo ha expirado.`
+        urgencyNote = `\n\n⚠️ *ESTADO:* EXCEDIDO\n❌ La compañía podría rechazar cualquier siniestro a partir de este momento.`
+    } else if (isGracePeriod) {
+        alertIcon = '🕒'
+        mainAction = 'EN PERIODO DE GRACIA'
+        contextMessage = `Hola *${clientName}*, tu recibo venció el *${formatDate(targetDate)}*, pero aún te encuentras dentro del *Periodo de Gracia* institucional. 🛡️`
+        urgencyNote = `\n\n📌 *Días de Gracia:* ${graceDays} días naturales.\n⏳ *Fecha Límite:* *${formatDate(limitDate.toISOString())}*`
+    } else if (isImminent) {
+        alertIcon = '🔔'
+        mainAction = 'PRÓXIMO VENCIMIENTO'
+        contextMessage = `Hola *${clientName}*, te escribimos para recordarte que tu pago está próximo a vencer. ¡Mantén tu tranquilidad siempre activa! 🚀`
     }
 
-    if (isDomiciliado) {
-        statusIcon = '💳'
-        alertTitle = 'AVISO DE CARGO AUTOMÁTICO'
-        footerMessage = 'Solo asegúrate de contar con los fondos disponibles en tu cuenta. ¡Saludos! 🚀'
-    }
-
-    // Cabecera Común
-    const header = `${statusIcon} *${alertTitle}*\n\nHola *${clientName}*, espero que estés teniendo un excelente día. 🌟 Te envío la información de tu próximo recibo a liquidar:\n\n`
-
-    // Cuerpo de Datos (Ficha Técnica)
-    const bodyItems = [
-        `👤 *Asegurado:* ${clientName}`,
+    const message = [
+        `${alertIcon} *${mainAction}* ${alertIcon}`,
+        '',
+        contextMessage,
+        '',
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `👤 *Cliente:* ${clientName}`,
         `🏢 *Aseguradora:* ${insurerName}`,
-        `🛡️ *Ramo:* ${policyType}`,
-        `📄 *Descripción:* ${subBranch || 'Cobertura Original'}`,
-        `🔢 *Póliza:* *${policyNumber}*`
-    ]
+        `🛡️ *Plan:* ${policyType}${subBranch ? ` (${subBranch})` : ''}`,
+        `🔢 *Póliza:* *${policyNumber}*`,
+        `🧾 *Recibo:* ${installmentNumber} de ${totalInstallments}`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        '',
+        `📅 *Vence el:* *${formatDate(targetDate)}*`,
+        `💰 *MONTO A PAGAR: ${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
+        urgencyNote,
+        '',
+        `¿Deseas que te enviemos la línea de captura o el link de pago express? 😊`,
+        '',
+        `*${statusHeader}*`
+    ].join('\n')
 
-    if (totalInstallments && totalInstallments > 1) {
-        bodyItems.push(`🧾 *Recibo:* ${currentInstallment || 1} de ${totalInstallments}`)
-    }
-
-    bodyItems.push(
-        `📅 *Vencimiento:* *${formatDate(targetDate)}*`,
-        `💳 *Método:* ${paymentMethod}`
-    )
-
-    bodyItems.push(`\n💰 *TOTAL A PAGAR: ${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`)
-
-    const body = bodyItems.join('\n')
-
-    // Lógica de Semáforo / Días de Gracia
-    let graceInfo = ''
-    if (isAnual && !isDomiciliado) {
-        const cancelDate = new Date(targetDate)
-        cancelDate.setDate(cancelDate.getDate() + 30)
-        graceInfo = `\n\n📌 *Días de Gracia:* 30 días naturales\n⏳ *Límite de gracia:* ${formatDate(cancelDate.toISOString())}`
-    } else if (!isDomiciliado) {
-        graceInfo = `\n\n⚠️ *Nota:* Los recibos fraccionados no cuentan con periodo de gracia institucional.`
-    }
-
-    const paymentInfo = paymentLink ? `\n\n🔗 *Pagar Ahora:* ${paymentLink}` : ''
-    const finalSection = `\n\n${footerMessage}`
-
-    return header + body + graceInfo + paymentInfo + finalSection
+    return message
 }
 
 /**

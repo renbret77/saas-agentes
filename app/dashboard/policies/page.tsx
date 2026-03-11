@@ -1,10 +1,12 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
+import { getInsurerConfig } from "@/lib/insurers-config"
+import { getPremiumCollectionMessage } from "@/lib/whatsapp-templates"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -338,17 +340,67 @@ export default function PoliciesPage() {
                                                                                                 </span>
                                                                                             </td>
                                                                                             <td className="px-3 py-2 text-right">
-                                                                                                <button
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                                                        const msg = encodeURIComponent(`Hola *${clientName}* 👋, te recordamos el pago de tu recibo *${inst.installment_number}* de la póliza *${policy.policy_number}* por *$${formatCurrency(inst.total_amount)}*. \n\nVence el: *${new Date(inst.due_date).toLocaleDateString()}* 📅. ¡Saludos! ✨`);
-                                                                                                        window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${msg}`, '_blank');
-                                                                                                    }}
-                                                                                                    className="text-[9px] font-black text-emerald-600 hover:text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95"
-                                                                                                >
-                                                                                                    Cobrar
-                                                                                                </button>
+                                                                                                <div className="flex items-center justify-end gap-2">
+                                                                                                    <button
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            const config = getInsurerConfig(policy.insurer_id || '');
+                                                                                                            const graceDays = inst.installment_number === 1 ? (config?.graceDaysFirst ?? 0) : (config?.graceDaysSubsequent ?? 0);
+                                                                                                            const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+
+                                                                                                            const msg = getPremiumCollectionMessage(
+                                                                                                                clientName,
+                                                                                                                policy.insurance_lines?.name || '',
+                                                                                                                policy.insurers?.alias || policy.insurers?.name || '',
+                                                                                                                policy.policy_number || '',
+                                                                                                                inst.total_amount || 0,
+                                                                                                                policy.payment_method as any,
+                                                                                                                inst.due_date,
+                                                                                                                inst.installment_number,
+                                                                                                                policy.policy_installments?.length || 1,
+                                                                                                                graceDays,
+                                                                                                                policy.sub_branch
+                                                                                                            );
+
+                                                                                                            const waLink = `https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+                                                                                                            window.open(waLink, '_blank');
+                                                                                                        }}
+                                                                                                        className="text-[9px] font-black text-emerald-600 hover:text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95 flex items-center gap-1"
+                                                                                                        title="Cobrar vía WhatsApp"
+                                                                                                    >
+                                                                                                        <MessageCircle className="w-3 h-3" /> WhatsApp
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            const config = getInsurerConfig(policy.insurer_id || '');
+                                                                                                            const graceDays = inst.installment_number === 1 ? (config?.graceDaysFirst ?? 0) : (config?.graceDaysSubsequent ?? 0);
+                                                                                                            const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+
+                                                                                                            const content = getPremiumCollectionMessage(
+                                                                                                                clientName,
+                                                                                                                policy.insurance_lines?.name || '',
+                                                                                                                policy.insurers?.alias || policy.insurers?.name || '',
+                                                                                                                policy.policy_number || '',
+                                                                                                                inst.total_amount || 0,
+                                                                                                                policy.payment_method as any,
+                                                                                                                inst.due_date,
+                                                                                                                inst.installment_number,
+                                                                                                                policy.policy_installments?.length || 1,
+                                                                                                                graceDays,
+                                                                                                                policy.sub_branch
+                                                                                                            );
+
+                                                                                                            const subject = encodeURIComponent(`Recordatorio de Pago: Póliza ${policy.policy_number} - ${policy.insurers?.alias || policy.insurers?.name}`);
+                                                                                                            const mailto = `mailto:?subject=${subject}&body=${encodeURIComponent(content)}`;
+                                                                                                            window.open(mailto, '_blank');
+                                                                                                        }}
+                                                                                                        className="p-1 px-2 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-95 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest"
+                                                                                                        title="Enviar por Correo"
+                                                                                                    >
+                                                                                                        <Mail className="w-3 h-3" /> Correo
+                                                                                                    </button>
+                                                                                                </div>
                                                                                             </td>
                                                                                         </tr>
                                                                                     ))
