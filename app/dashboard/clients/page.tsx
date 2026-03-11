@@ -133,9 +133,17 @@ export default function ClientsPage() {
                                                 </Link>
                                                 <button
                                                     onClick={async () => {
-                                                        if (confirm('¿Estás seguro de eliminar este cliente?')) {
-                                                            await supabase.from('clients').delete().eq('id', client.id);
-                                                            window.location.reload();
+                                                        const confirmation = prompt(`⚠️ ATENCIÓN: Esta acción eliminará al cliente "${client.first_name} ${client.last_name}" de forma permanente.\n\nPara confirmar, escribe "ELIMINAR CLIENTE" en el recuadro de abajo:`);
+
+                                                        if (confirmation === 'ELIMINAR CLIENTE') {
+                                                            const { error } = await supabase.from('clients').delete().eq('id', client.id);
+                                                            if (error) {
+                                                                alert('Error al eliminar: ' + error.message);
+                                                            } else {
+                                                                fetchClients(); // Refrescar lista sin recargar página
+                                                            }
+                                                        } else if (confirmation !== null) {
+                                                            alert('Confirmación incorrecta. No se realizaron cambios.');
                                                         }
                                                     }}
                                                     className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"

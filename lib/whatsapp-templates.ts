@@ -128,7 +128,7 @@ Quedo atento para apoyarte y que sigas siempre protegido. 😊`
 }
 
 /**
- * Genera el copy de WhatsApp para Bienvenida y Entrega Premium (v26)
+ * Genera el copy de WhatsApp para Bienvenida y Entrega Premium (v27 - Unicode Emojis)
  */
 export const getWelcomeMessage = (
     clientName: string,
@@ -146,32 +146,48 @@ export const getWelcomeMessage = (
     currencySymbol: string = '$',
     coverage: string = 'Amplia / Según Carátula'
 ) => {
+    // Definimos emojis usando Unicode para evitar problemas de encoding en el navegador
+    const star = '\u2B50'
+    const diamond = '\uD83D\uDC8E'
+    const building = '\uD83C\uDFE2'
+    const shield = '\uD83D\uDEE1\uFE0F'
+    const pin = '\uD83D\uDCCD'
+    const card = '\uD83D\uDCB3'
+    const calendar = '\uD83D\uDCC5'
+    const dollar = '\uD83D\uDCB5'
+    const receipt = '\uD83E\uDDFE'
+    const sync = '\uD83D\uDD04'
+    const check = '\u2705'
+    const hourglass = '\u23F3'
+    const memo = '\uD83D\uDCC4'
+    const smile = '\uD83D\uDE0A'
+
     return [
-        `⭐ *¡BIENVENIDO A TU PROTECCIÓN PREMIUM!* ⭐`,
+        `${star} *¡BIENVENIDO A TU PROTECCIÓN PREMIUM!* ${star}`,
         '',
         `Hola *${clientName}*, ¡gracias por tu preferencia! Es un gusto saludarte y confirmarte el alta exitosa de tu protección.`,
         '',
-        `💎 *DETALLES DE TU PÓLIZA*`,
+        `${diamond} *DETALLES DE TU PÓLIZA*`,
         `━━━━━━━━━━━━━━━━━━━━`,
-        `🏢 *Aseguradora:* ${insurerName}`,
+        `${building} *Aseguradora:* ${insurerName}`,
         `🔢 *Póliza:* *${policyNumber}*`,
-        `🛡️ *Ramo:* ${policyType}`,
-        `📍 *Cobertura:* ${coverage}`,
-        `💳 *Forma de Pago:* ${paymentMethod}`,
-        `📅 *Vigencia:* del *${formatDate(startDate)}* al *${formatDate(endDate)}*`,
+        `${shield} *Ramo:* ${policyType}`,
+        `${pin} *Cobertura:* ${coverage}`,
+        `${card} *Forma de Pago:* ${paymentMethod}`,
+        `${calendar} *Vigencia:* del *${formatDate(startDate)}* al *${formatDate(endDate)}*`,
         `━━━━━━━━━━━━━━━━━━━━`,
         '',
         `💰 *PRIMAS Y RECIBOS*`,
-        `💵 *Prima Total:* *${currencySymbol}${premiumTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
-        `🧾 *1er Recibo:* ${currencySymbol}${firstInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
-        subsequentInstallment > 0 ? `🔄 *Subsecuentes:* ${currencySymbol}${subsequentInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : '✅ *Pago Único / Contado*',
-        `⏳ *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
+        `${dollar} *Prima Total:* *${currencySymbol}${premiumTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
+        `${receipt} *1er Recibo:* ${currencySymbol}${firstInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        subsequentInstallment > 0 ? `${sync} *Subsecuentes:* ${currencySymbol}${subsequentInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : `${check} *Pago Único / Contado*`,
+        `${hourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
-        `📄 *TU DOCUMENTACIÓN DIGITAL*`,
+        `${memo} *TU DOCUMENTACIÓN DIGITAL*`,
         `Puedes descargar tu póliza completa aquí:`,
         policyLink,
         '',
-        `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! 😊`,
+        `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${smile}`,
         '',
         `*PORTAL DE PROTECCIÓN PREMIUM*`
     ].join('\n')

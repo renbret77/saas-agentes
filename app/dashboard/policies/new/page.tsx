@@ -327,6 +327,16 @@ export default function NewPolicyPage() {
             if (data.client_email) setParsedClientEmail(data.client_email)
             if (data.first_installment_extract) setParsedFirstInstallment(parseNum(data.first_installment_extract))
 
+            // v27: Mejorar extracción de INE si el tipo detectado es Identificación
+            if (data.document_type === 'Identificación' || data.document_type === 'INE') {
+                if (data.id_number) {
+                    setFormData(prev => ({ ...prev, notes: (prev.notes || '') + `\nID: ${data.id_number}` }))
+                }
+                if (data.expiration_date) {
+                    setFormData(prev => ({ ...prev, notes: (prev.notes || '') + `\nVence ID: ${data.expiration_date}` }))
+                }
+            }
+
 
             // Notificamos al usuario del éxito (v19.4)
             if (data.client_name && !updatedClientId) {
@@ -558,6 +568,7 @@ export default function NewPolicyPage() {
                 premium_net: parseNum(formData.premium_net),
                 tax: parseNum(formData.tax),
                 premium_total: parseNum(formData.premium_total),
+                caratula_url: policyFileUrl || null, // v27: Persistencia directa en tabla policies
                 total_installments: parseInt(formData.total_installments) || 1,
                 current_installment: parseInt(formData.current_installment) || 1,
                 payment_link: formData.payment_link || null,
