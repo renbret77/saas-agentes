@@ -6,7 +6,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
 import { getInsurerConfig } from "@/lib/insurers-config"
-import { getPremiumCollectionMessage } from "@/lib/whatsapp-templates"
+import { getCollectionMessage } from "@/lib/whatsapp-templates"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -348,7 +348,7 @@ export default function PoliciesPage() {
                                                                                                             const graceDays = inst.installment_number === 1 ? (config?.graceDaysFirst ?? 0) : (config?.graceDaysSubsequent ?? 0);
                                                                                                             const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
 
-                                                                                                            const msg = getPremiumCollectionMessage(
+                                                                                                            const msg = getCollectionMessage(
                                                                                                                 clientName,
                                                                                                                 policy.insurance_lines?.name || '',
                                                                                                                 policy.insurers?.alias || policy.insurers?.name || '',
@@ -377,7 +377,7 @@ export default function PoliciesPage() {
                                                                                                             const graceDays = inst.installment_number === 1 ? (config?.graceDaysFirst ?? 0) : (config?.graceDaysSubsequent ?? 0);
                                                                                                             const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
 
-                                                                                                            const content = getPremiumCollectionMessage(
+                                                                                                            const content = getCollectionMessage(
                                                                                                                 clientName,
                                                                                                                 policy.insurance_lines?.name || '',
                                                                                                                 policy.insurers?.alias || policy.insurers?.name || '',

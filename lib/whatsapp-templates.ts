@@ -18,9 +18,9 @@ export const generateWhatsAppLink = (phone: string, text: string) => {
 }
 
 /**
- * Genera el copy de WhatsApp basado en las reglas de negocio (v25 - Formato Premium Contextual)
+ * Genera el copy de WhatsApp basado en las reglas de negocio (v26 - Formato Premium Contextual)
  */
-export const getPremiumCollectionMessage = (
+export const getCollectionMessage = (
     clientName: string,
     policyType: string,
     insurerName: string,
@@ -28,8 +28,8 @@ export const getPremiumCollectionMessage = (
     amount: number,
     paymentMethod: PaymentMethod,
     targetDate: string,
-    installmentNumber: number,
-    totalInstallments: number,
+    installmentNumber: number = 1,
+    totalInstallments: number = 1,
     graceDays: number = 0,
     subBranch?: string,
     currencySymbol: string = '$'
