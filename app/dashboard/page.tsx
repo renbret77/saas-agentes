@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, FileText, DollarSign, Activity, TrendingUp, ArrowUpRight, Plus, Sparkles, MessageSquare } from "lucide-react"
+import { Users, FileText, DollarSign, Activity, TrendingUp, ArrowUpRight, Plus, Sparkles, MessageSquare, Download } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import RenewalAlerts from "@/components/dashboard/overview/renewal-alerts"
 import BranchDistribution from "@/components/dashboard/overview/branch-distribution"
@@ -10,6 +10,7 @@ import OpportunityWidget from "@/components/dashboard/OpportunityWidget"
 import { OnboardingTour } from "@/components/dashboard/onboarding-tour"
 import CapatazStatusWidget from "@/components/dashboard/CapatazStatusWidget"
 import CriticalTasksWidget from "@/components/dashboard/CriticalTasksWidget"
+import ClaimsTrackingWidget from "@/components/dashboard/ClaimsTrackingWidget"
 import Link from "next/link"
 
 export default function DashboardPage() {
@@ -119,12 +120,41 @@ export default function DashboardPage() {
                     <p className="text-slate-500 font-medium">RB Proyectos: Inteligencia Artificial aplicada a tu Cartera.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <Link href="/dashboard/import" className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-                        <ArrowUpRight className="w-4 h-4" /> Importar SICAS
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={async () => {
+                            const { data: clients } = await supabase.from('clients').select('*');
+                            const { data: policies } = await supabase.from('policies').select('*');
+
+                            const downloadCSV = (data: any[], filename: string) => {
+                                if (!data || data.length === 0) return;
+                                const headers = Object.keys(data[0]).join(',');
+                                const rows = data.map(row =>
+                                    Object.values(row).map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')
+                                );
+                                const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows.join("\n");
+                                const encodedUri = encodeURI(csvContent);
+                                const link = document.createElement("a");
+                                link.setAttribute("href", encodedUri);
+                                link.setAttribute("download", filename);
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            };
+
+                            if (clients) downloadCSV(clients, `respaldo_clientes_${new Date().toISOString().split('T')[0]}.csv`);
+                            if (policies) downloadCSV(policies, `respaldo_polizas_${new Date().toISOString().split('T')[0]}.csv`);
+                            alert("✅ Respaldo generado. Se han descargado 2 archivos CSV con toda tu información.");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 transition-all shadow-sm active:scale-95 h-9"
+                    >
+                        <Download className="w-3 h-3" /> Exportar Todo
+                    </button>
+                    <Link href="/dashboard/import" className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95 h-9">
+                        <ArrowUpRight className="w-3 h-3" /> Importar SICAS
                     </Link>
-                    <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95">
-                        <Plus className="w-4 h-4" /> Nueva Cotización
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 h-9">
+                        <Plus className="w-3 h-3" /> Nueva Cotización
                     </button>
                 </div>
             </div>
@@ -157,19 +187,19 @@ export default function DashboardPage() {
                         ))}
                     </div>
 
+                    {/* Zona Focus: Siniestros y Renovaciones */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
+                            <ClaimsTrackingWidget />
+                        </div>
+                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
+                            <RenewalAlerts policies={policiesData} />
+                        </div>
+                    </div>
+
                     {/* Tareas Críticas (SICAS Killer) */}
                     <div className="mb-8">
                         <CriticalTasksWidget />
-                    </div>
-
-                    {/* Alertas y Tendencias */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[450px]">
-                            <RenewalAlerts policies={policiesData} />
-                        </div>
-                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[450px]">
-                            <CollectionTimeline policies={policiesData} />
-                        </div>
                     </div>
                 </div>
 
@@ -195,15 +225,18 @@ export default function DashboardPage() {
             </div>
 
             {/* Modern Floating Action Bar */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-slate-900/90 backdrop-blur-xl rounded-full border border-slate-700 shadow-2xl z-50 animate-in slide-in-from-bottom-10 duration-1000">
-                <button className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-full text-xs font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-950/20 active:scale-95">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-slate-900/90 backdrop-blur-xl rounded-full border border-slate-700 shadow-2xl z-40 animate-in slide-in-from-bottom-10 duration-1000">
+                <button
+                    onClick={() => alert("🪄 Magic Creator: Esta funcionalidad de IA está en fase de entrenamiento (Beta). Se habilitará próximamente para generar cotizaciones inteligentes con Capataz.")}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-full text-xs font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-950/20 active:scale-95"
+                >
                     <Sparkles className="w-4 h-4" /> Magic Creator
                 </button>
                 <div className="w-px h-6 bg-slate-700"></div>
-                <button className="p-3 hover:bg-slate-800 rounded-full text-slate-300 transition-colors">
+                <button className="p-3 hover:bg-slate-800 rounded-full text-slate-300 transition-colors" onClick={() => alert("Bitácora de IA - Próximamente")}>
                     <MessageSquare className="w-5 h-5" />
                 </button>
-                <button className="p-3 hover:bg-slate-800 rounded-full text-slate-300 transition-colors">
+                <button className="p-3 hover:bg-slate-800 rounded-full text-slate-300 transition-colors" onClick={() => alert("Historial de Actividad - Próximamente")}>
                     <Activity className="w-5 h-5" />
                 </button>
             </div>

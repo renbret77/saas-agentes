@@ -37,7 +37,7 @@ const menuItems = [
     { icon: Target, label: "Venta Cruzada", href: "/dashboard/cross-sell" },
     { icon: FileText, label: "Pólizas", href: "/dashboard/policies" },
     { icon: Heart, label: "Fidelización", href: "/dashboard/loyalty" },
-    { icon: LayoutDashboard, label: "Reportes", href: "/dashboard/reports" },
+    { icon: TrendingUp, label: "Reportes", href: "/dashboard/reports" },
     { icon: ShieldAlert, label: "Siniestros", href: "/dashboard/claims" },
     { icon: Shield, label: "Aseguradoras", href: "/dashboard/insurers" },
     { icon: RefreshCw, label: "Migración SICAS", href: "/dashboard/import" },
@@ -164,21 +164,21 @@ export function Sidebar() {
             )}>
 
                 {/* Logo Area */}
-                <div className="h-16 flex flex-col justify-center px-6 border-b border-slate-800">
+                <Link href="/dashboard" className="h-24 flex flex-col justify-center px-6 border-b border-slate-800 hover:bg-slate-800/50 transition-colors group">
                     <div className="flex items-center gap-3">
-                        <ShieldCheck className="h-8 w-8 text-emerald-400" />
-                        <span className="text-xl font-bold tracking-tight">RB Proyectos</span>
+                        <ShieldCheck className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-lg font-bold tracking-tight">RB Proyectos</span>
                     </div>
-                    <div className="mt-2 px-3 py-1 bg-rose-600/10 border border-rose-500/20 rounded-full w-fit">
-                        <span className="text-[10px] font-black text-rose-400 tracking-tighter uppercase leading-none flex items-center gap-1.5">
+                    <div className="mt-2 px-3 py-0.5 bg-rose-600/10 border border-rose-500/20 rounded-full w-fit">
+                        <span className="text-[9px] font-black text-rose-400 tracking-tighter uppercase leading-none flex items-center gap-1.5">
                             <span className="relative flex h-1.5 w-1.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
                             </span>
-                            BUILD {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ? 'VERCEL' : new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            BUILD 10/MAR 21:05
                         </span>
                     </div>
-                </div>
+                </Link>
 
                 {/* Navigation */}
                 <nav className="flex-1 py-6 px-3 space-y-1">

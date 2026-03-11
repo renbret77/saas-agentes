@@ -13,6 +13,7 @@ type ClientInsert = Database['public']['Tables']['clients']['Insert'] & {
     mobile_phone?: string | null
     work_phone?: string | null
     whatsapp?: string | null
+    telegram?: string | null
     secondary_email?: string | null
 }
 
@@ -53,6 +54,8 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         industry: "",
         website: "",
         notes: "",
+        whatsapp: "",
+        telegram: "",
         related_contacts: [],
         addresses: [],
         identifications: []
@@ -193,6 +196,34 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         }
     }
 
+    const handleDeleteClient = async () => {
+        const confirmPhrase = "borrar cliente"
+        const userInput = prompt(`¿Estás seguro de eliminar este cliente? Esta acción es irreversible.\n\nPara confirmar, escribe: ${confirmPhrase}`)
+
+        if (userInput === confirmPhrase) {
+            try {
+                setSaving(true)
+                const { error } = await supabase
+                    .from('clients')
+                    .delete()
+                    .eq('id', params.id)
+
+                if (error) throw error
+
+                alert("Cliente eliminado exitosamente")
+                router.push('/dashboard/clients')
+                router.refresh()
+            } catch (error: any) {
+                console.error('Error delete:', error)
+                alert("Error al eliminar: " + error.message)
+            } finally {
+                setSaving(false)
+            }
+        } else if (userInput !== null) {
+            alert("Confirmación incorrecta. No se eliminó el cliente.")
+        }
+    }
+
     if (loading) return <div className="p-8 text-center">Cargando datos del cliente...</div>
 
     return (
@@ -214,6 +245,15 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                 >
                     <Save className="w-5 h-5" />
                     {saving ? 'Guardando...' : 'Actualizar Cliente'}
+                </button>
+                <button
+                    onClick={handleDeleteClient}
+                    disabled={saving}
+                    type="button"
+                    className="p-2.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors border border-rose-200"
+                    title="Eliminar Cliente"
+                >
+                    <Trash2 className="w-5 h-5" />
                 </button>
             </div>
 
@@ -776,6 +816,23 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                         className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white shadow-sm"
                                     />
                                     <p className="text-[10px] text-slate-400 italic ml-1">* Se usará para cobranza y recordatorios de renovación.</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 block ml-1 flex items-center gap-2">
+                                        <div className="p-1 bg-sky-100 rounded text-sky-600">
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.81-1.65 6.35-2.74 7.62-3.27 3.63-1.53 4.38-1.8 4.87-1.81.11 0 .35.03.5.16.12.1.16.24.18.33.02.08.02.24.01.32z" /></svg>
+                                        </div>
+                                        Telegram username o alias
+                                    </label>
+                                    <input
+                                        name="telegram"
+                                        value={formData.telegram || ''}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white shadow-sm"
+                                        placeholder="@usuario"
+                                    />
+                                    <p className="text-[10px] text-slate-400 italic ml-1">* Canal alternativo para notificaciones premium.</p>
                                 </div>
 
                                 <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-4">

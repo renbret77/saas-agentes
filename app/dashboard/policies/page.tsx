@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
@@ -50,6 +50,30 @@ export default function PoliciesPage() {
             console.error('Error loading policies:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleDeletePolicy = async (id: string, policyNumber: string) => {
+        const confirmPhrase = "eliminar poliza"
+        const userInput = prompt(`¿Estás seguro de eliminar la póliza ${policyNumber}? Esta acción es irreversible.\n\nPara confirmar, escribe: ${confirmPhrase}`)
+
+        if (userInput === confirmPhrase) {
+            try {
+                const { error } = await supabase
+                    .from('policies')
+                    .delete()
+                    .eq('id', id)
+
+                if (error) throw error
+
+                alert("Póliza eliminada exitosamente")
+                fetchPolicies() // Recargar lista
+            } catch (error: any) {
+                console.error('Error delete:', error)
+                alert("Error al eliminar: " + error.message)
+            }
+        } else if (userInput !== null) {
+            alert("Confirmación incorrecta. No se eliminó la póliza.")
         }
     }
 
@@ -245,6 +269,16 @@ export default function PoliciesPage() {
                                                         <Link href={`/dashboard/policies/${policy.id}`} onClick={(e) => e.stopPropagation()} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-100">
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
                                                         </Link>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeletePolicy(policy.id, policy.policy_number);
+                                                            }}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                            title="Eliminar Póliza"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -326,5 +360,5 @@ export default function PoliciesPage() {
                 )}
             </div>
         </div>
-    )
+    );
 }

@@ -50,6 +50,8 @@ export default function NewClientPage() {
         industry: "",
         website: "",
         notes: "",
+        whatsapp: "",
+        telegram: "",
         related_contacts: [],
         addresses: [],
         identifications: []
@@ -126,6 +128,7 @@ export default function NewClientPage() {
                 company_name: formData.company_name ? toTitleCase(formData.company_name) : null,
                 job_title: formData.job_title ? toTitleCase(formData.job_title) : null,
                 profession: formData.profession ? toTitleCase(formData.profession) : null,
+                whatsapp: formData.mobile_phone || formData.whatsapp || null,
                 status: 'lead' // Ensure status is set
             }
 
@@ -235,26 +238,50 @@ export default function NewClientPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">Fecha de Nacimiento</label>
                                 <input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200" />
                             </div>
                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Género</label>
+                                <select name="gender" value={formData.gender || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white">
+                                    <option value="">Seleccione...</option>
+                                    <option value="male">Masculino</option>
+                                    <option value="female">Femenino</option>
+                                    <option value="other">Otro / No aplica</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">CURP</label>
-                                <input name="curp" value={formData.curp || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200" />
+                                <input name="curp" value={formData.curp || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 uppercase" placeholder="18 Caracteres" />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">Régimen Fiscal</label>
-                                <select name="fiscal_regime" value={formData.fiscal_regime || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white">
+                                <select name="fiscal_regime" value={formData.fiscal_regime || ''} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-white font-medium">
                                     <option value="">Seleccione...</option>
-                                    <option value="605">Sueldos y Salarios</option>
-                                    <option value="612">Personas Físicas con Actividades Empresariales</option>
-                                    <option value="626">Régimen Simplificado de Confianza (RESICO)</option>
-                                    <option value="601">General de Ley Personas Morales</option>
+                                    <option value="601">601 - General de Ley Personas Morales</option>
+                                    <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
+                                    <option value="605">605 - Sueldos y Salarios e Ingresos Asimilados a Salarios</option>
+                                    <option value="606">606 - Arrendamiento</option>
+                                    <option value="607">607 - Enajenación o Adquisición de Bienes</option>
+                                    <option value="608">608 - Demás Ingresos</option>
+                                    <option value="610">610 - Residentes en el Extranjero sin Establecimiento Permanente en México</option>
+                                    <option value="611">611 - Ingresos por Dividendos (socios y accionistas)</option>
+                                    <option value="612">612 - Personas Físicas con Actividades Empresariales y Profesionales</option>
+                                    <option value="614">614 - Ingresos por Intereses</option>
+                                    <option value="615">615 - Régimen de los ingresos por obtención de premios</option>
+                                    <option value="616">616 - Sin obligaciones fiscales</option>
+                                    <option value="620">620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos</option>
+                                    <option value="621">621 - Incorporación Fiscal</option>
+                                    <option value="622">622 - Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras</option>
+                                    <option value="623">623 - Opcional para Grupos de Sociedades</option>
+                                    <option value="624">624 - Coordinados</option>
+                                    <option value="625">625 - Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas</option>
+                                    <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
