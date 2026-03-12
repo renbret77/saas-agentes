@@ -223,9 +223,11 @@ export const getRenewedMessage = (
         `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
         `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
-        `Presiona el siguiente enlace para visualizar tu nueva carátula de forma segura.`,
+        `Presiona el botón de acceso para visualizar tu nueva carátula de forma segura.`,
         '',
-        `💻 *BOTÓN DE ACCESO:*`,
+        `*---------------------------------*`,
+        `   *📥 ABRIR CARÁTULA*`,
+        `*---------------------------------*`,
         policyLink,
         '',
         `Gracias por seguir confiando en nosotros. ¡Quedo a tus órdenes! ${eSmile}`,
@@ -275,9 +277,11 @@ export const getWelcomeMessage = (
         `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
         `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
-        `Presiona el siguiente enlace para abrir tu póliza en el Portal Digital.`,
+        `Presiona el botón de acceso para abrir tu póliza en el Portal Digital.`,
         '',
-        `💻 *BOTÓN DE ACCESO:*`,
+        `*---------------------------------*`,
+        `   *📥 ABRIR PÓLIZA*`,
+        `*---------------------------------*`,
         policyLink,
         '',
         `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${eSmile}`,
@@ -340,10 +344,44 @@ export const getDirectLinkMessage = (clientName: string, policyLink: string) => 
         '',
         `${eShield} Aquí se encuentra tu carátula digital:`,
         '',
-        `💻 *BOTÓN DE ACCESO:*`,
+        `*---------------------------------*`,
+        `   *📥 VER MI CARÁTULA*`,
+        `*---------------------------------*`,
         policyLink,
         '',
         `Guárdala bien para cualquier emergencia. ${eSmile}`
+    ].join('\n')
+}
+
+export const getManualMessage = (clientName: string, insurerName: string, manualLink: string) => {
+    return [
+        `*${clientName}*, te comparto el *Manual de Pago* para tu póliza con *${insurerName}*.`,
+        '',
+        `Aquí encontrarás todas las opciones (Bancos, App o Tiendas) para realizar tus pagos de forma correcta.`,
+        '',
+        `*---------------------------------*`,
+        `   *📥 VER MANUAL DE PAGO*`,
+        `*---------------------------------*`,
+        manualLink,
+        '',
+        `¡Excelente día! ${eSmile}`
+    ].join('\n')
+}
+
+export const getTipsMessage = (clientName: string, insuranceType: string, tipsLink: string) => {
+    return [
+        `*${clientName}*, tu seguridad es nuestra prioridad.`,
+        '',
+        `Te adjunto una *Guía de Recomendaciones* especial para tu seguro de *${insuranceType}*.`,
+        '',
+        `Revísala para saber qué hacer en caso de siniestro y mantener tu protección al 100%.`,
+        '',
+        `*---------------------------------*`,
+        `   *📥 VER RECOMENDACIONES*`,
+        `*---------------------------------*`,
+        tipsLink,
+        '',
+        `Estamos para servirte. ${eSmile}`
     ].join('\n')
 }
 

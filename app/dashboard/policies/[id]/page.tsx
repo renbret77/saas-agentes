@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw, Link as LinkIcon } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw, Link as LinkIcon, Zap } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import {
@@ -13,7 +13,9 @@ import {
     getRenewedMessage,
     getDirectLinkMessage,
     getBrandedViewerLink,
-    generateWhatsAppLink
+    generateWhatsAppLink,
+    getManualMessage,
+    getTipsMessage
 } from "@/lib/whatsapp-templates"
 import { generatePaymentSchedulePDF, generateRecommendationsPDF } from "@/lib/pdf-generator"
 
@@ -27,7 +29,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
     const [error, setError] = useState<string | null>(null)
     const [documents, setDocuments] = useState<any[]>([])
     const [uploadingDoc, setUploadingDoc] = useState(false)
-    const [sendingCombo, setSendingCombo] = useState(false)
+    const [sequenceStep, setSequenceStep] = useState(0) // 0: None, 1: Summary, 2: Caratula, 3: Calendar, 4: Manual, 5: Tips
 
     // Manuales de Pago por Aseguradora
     const insurerManuals: Record<string, string> = {
@@ -329,6 +331,57 @@ export default function EditPolicyPage({ params }: { params: any }) {
         } finally {
             setUploadingDoc(false)
         }
+    }
+
+    const handleNextSequence = () => {
+        const client = clients.find(c => c.id === formData.client_id)
+        const clientName = `${client?.first_name} ${client?.last_name}`
+        const insurerName = insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora'
+        const branchName = lines.find(l => l.id === formData.branch_id)?.name || 'Seguro'
+        
+        let msg = ""
+        let nextStep = sequenceStep + 1
+
+        if (sequenceStep === 1) { // Send Caratula
+            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
+            const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula')
+            msg = getDirectLinkMessage(clientName, brandedLink)
+            
+            // Evaluar si saltar al siguiente (si no hay calendario o es pago unico)
+            const hasCalendar = documents.find(d => d.name.includes("Calendario"))
+            if (!hasCalendar || installments.length <= 1) nextStep = 4
+        } 
+        else if (sequenceStep === 2) { // Send Calendar
+            const calDoc = documents.find(d => d.name.includes("Calendario"))
+            if (calDoc) {
+                const brandedLink = getBrandedViewerLink(calDoc.file_url, clientName, 'Calendario de Pagos')
+                msg = getDirectLinkMessage(clientName, brandedLink)
+            } else {
+                nextStep = 4 // Saltar a manual si no hay calendario
+            }
+        }
+        else if (sequenceStep === 3) { // Send Manual
+            const manualDoc = documents.find(d => d.name.includes("Manual"))
+            if (manualDoc) {
+                msg = getManualMessage(clientName, insurerName, manualDoc.file_url)
+            } else {
+                nextStep = 5 // Saltar a tips
+            }
+        }
+        else if (sequenceStep === 4) { // Send Tips
+            const tipsDoc = documents.find(d => d.name.includes("Recomendaciones"))
+            if (tipsDoc) {
+                msg = getTipsMessage(clientName, branchName, tipsDoc.file_url)
+            }
+            nextStep = 0 // Fin de secuencia
+        }
+
+        if (msg) {
+            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+        }
+        
+        // Si el siguiente paso no tiene contenido, intentar avanzar recursivamente
+        setSequenceStep(nextStep)
     }
 
     const handleDeleteDoc = async (docId: string) => {
@@ -847,7 +900,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:65</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:70</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -890,9 +943,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     </span>
                     <button
                         onClick={() => {
-                            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible'
-                            const brandedLink = getBrandedViewerLink(rawLink, `${client?.first_name} ${client?.last_name}`, 'Carátula')
-                            
+                            const client = clients.find(c => c.id === formData.client_id)
                             const msg = getWelcomeMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
@@ -905,32 +956,37 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date, // Límite 1er pago
-                                brandedLink,
+                                'Link_en_siguiente_msj',
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
                             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
-                            setSendingCombo(true)
+                            setSequenceStep(1)
                         }}
-                        className={`text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sendingCombo ? 'bg-emerald-600 text-white animate-pulse' : 'bg-slate-900 text-white hover:bg-black'}`}
+                        className={`text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sequenceStep > 0 ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-black'}`}
                     >
-                        {sendingCombo ? 'ENVIAR LINK DIRECTO 🔗' : 'BIENVENIDA ✨'}
+                        {sequenceStep > 0 ? 'ENVIANDO SECUENCIA... ⏳' : 'BIENVENIDA ✨'}
                     </button>
 
-                    {sendingCombo && (
+                    {sequenceStep > 0 && (
                         <button
-                            onClick={() => {
-                                const client = clients.find(c => c.id === formData.client_id)
-                                const clientName = `${client?.first_name} ${client?.last_name}`
-                                const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
-                                const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula')
-                                const msg = getDirectLinkMessage(clientName, brandedLink)
-                                window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
-                                setSendingCombo(false)
-                            }}
-                            className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-2 rounded-xl border border-emerald-200 animate-bounce"
+                            onClick={handleNextSequence}
+                            className="bg-emerald-500 text-white text-[10px] font-black px-4 py-2 rounded-xl border-2 border-emerald-400 animate-bounce shadow-lg flex items-center gap-2"
                         >
-                            ENVIAR LINK AHORA! ⚡
+                            {sequenceStep === 1 && '1. MANDAR CARÁTULA 📄'}
+                            {sequenceStep === 2 && '2. MANDAR CALENDARIO 📅'}
+                            {sequenceStep === 3 && '3. MANDAR MANUAL PAGO 💳'}
+                            {sequenceStep === 4 && '4. MANDAR RECOMENDACIONES 🛡️'}
+                            <Zap className="w-3 h-3 fill-white" />
+                        </button>
+                    )}
+
+                    {sequenceStep > 0 && (
+                         <button 
+                            onClick={() => setSequenceStep(0)}
+                            className="text-[10px] text-slate-400 hover:text-rose-500 underline"
+                        >
+                            Resetear
                         </button>
                     )}
 
@@ -960,9 +1016,6 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
-                            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible'
-                            const brandedLink = getBrandedViewerLink(rawLink, `${client?.first_name} ${client?.last_name}`, 'Carátula')
-
                             const msg = getRenewedMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
@@ -975,15 +1028,16 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date,
-                                brandedLink,
+                                'Link_en_siguiente_msj',
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
                             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                            setSequenceStep(1)
                         }}
-                        className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                        className={`text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sequenceStep > 0 ? 'bg-orange-600 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                     >
-                        RENOVADA 🎉
+                        {sequenceStep > 0 ? 'SECUENCIA ACTIVA... 🟠' : 'RENOVADA 🎉'}
                     </button>
                     
                     <button
