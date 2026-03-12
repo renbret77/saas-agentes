@@ -64,7 +64,7 @@ export const generateWhatsAppLink = (phone: any, text: string) => {
  */
 export const getBrandedViewerLink = (url: string, clientName: string, docType: string) => {
     if (!url || url.includes('no_disponible')) return url
-    const baseUrl = "https://portal-eight-kohl.vercel.app/portal/view"
+    const baseUrl = "https://portalcaratulas.renebreton.mx/portal/view"
     const params = new URLSearchParams({
         p: url.split('/').pop() || '', // Solo el nombre del archivo
         n: clientName,
