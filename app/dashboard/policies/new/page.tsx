@@ -220,7 +220,7 @@ export default function NewPolicyPage() {
             const filePath = `caratulas/${fileName}`
 
             const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('policy_docs')
+                .from('client_docs')
                 .upload(filePath, file)
 
             if (uploadError) {
@@ -229,7 +229,7 @@ export default function NewPolicyPage() {
                 setPolicyFileUrl(null)
             } else {
                 const { data: { publicUrl } } = supabase.storage
-                    .from('policy_docs')
+                    .from('client_docs')
                     .getPublicUrl(filePath)
                 setPolicyFileUrl(publicUrl)
             }
