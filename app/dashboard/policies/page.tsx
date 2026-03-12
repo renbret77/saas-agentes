@@ -446,7 +446,7 @@ export default function PoliciesPage() {
                                                                         </div>
                                                                     ) : (
                                                                         <div className="p-4 text-center text-[10px] text-slate-400 italic">
-                                                                            Sin endosos registrados
+                                                                            Sin documentos registrados. <Link href={`/dashboard/policies/${policy.id}`} className="text-blue-600 hover:text-blue-800 underline not-italic">Subir manual</Link>
                                                                         </div>
                                                                     )}
                                                                 </div>

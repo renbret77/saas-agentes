@@ -193,6 +193,7 @@ export default function NewPolicyPage() {
         setParsedClientPhone(null)
         setParsedClientEmail(null)
         setParsedBranchName(null)
+        setPolicyFileUrl(null)
 
 
         try {
@@ -224,7 +225,8 @@ export default function NewPolicyPage() {
 
             if (uploadError) {
                 console.error('Storage Upload Error:', uploadError)
-                // We continue even if storage fails, data is already parsed
+                alert('⚠️ El PDF se procesó con IA pero falló la subida al servidor. La póliza se creará sin el archivo adjunto. Intenta subirlo manualmente después.')
+                setPolicyFileUrl(null)
             } else {
                 const { data: { publicUrl } } = supabase.storage
                     .from('policy_docs')
@@ -669,7 +671,7 @@ export default function NewPolicyPage() {
             }
 
             // VINCULAR CARÁTULA (v25) - Persistencia robusta
-            if (policyData && policyFileUrl) {
+            if (policyData?.id && policyFileUrl) {
                 console.log("Vinculando carátula PDF...", policyFileUrl)
                 const { error: docError } = await (supabase.from('policy_documents') as any)
                     .insert({
@@ -681,7 +683,11 @@ export default function NewPolicyPage() {
                 if (docError) {
                     console.error("Error vinculando carátula:", docError)
                     alert("⚠️ La póliza se guardó pero hubo un error al vincular el PDF. Por favor, cárguelo manualmente en detalles.")
+                } else {
+                    console.log("Carátula vinculada con éxito.");
                 }
+            } else if (policyFileUrl && !policyData?.id) {
+                console.error("No se pudo vincular carátula: policyData.id es nulo", policyData);
             }
 
             setCreatedPolicyId(policyData.id)
@@ -750,6 +756,13 @@ export default function NewPolicyPage() {
                                 {clients.find(c => c.id === formData.client_id)?.first_name || 'Cliente'} {clients.find(c => c.id === formData.client_id)?.last_name || ''}
                             </p>
                         </div>
+                    </div>
+                    
+                    <div className={`flex items-center justify-center gap-3 p-3 rounded-2xl border transition-all ${policyFileUrl ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
+                        {policyFileUrl ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                        <p className="text-[10px] font-black uppercase tracking-widest text-center">
+                            {policyFileUrl ? 'PDF de Carátula Vinculado ✅' : '⚠️ PDF de Carátula NO disponible'}
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
