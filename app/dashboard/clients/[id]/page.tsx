@@ -208,7 +208,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
             }
 
             // Clean and Format Data
-            const cleanedData: ClientInsert = {
+            const cleanedData: any = {
                 ...(formData as any),
                 user_id: user.id,
                 // Apply Title Case to names and texts
@@ -220,7 +220,6 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
             }
 
             const phoneFields = ['mobile_phone', 'phone', 'work_phone', 'whatsapp']
-            const cleanedData: any = { ...formData }
             
             phoneFields.forEach(field => {
                 if (!cleanedData[field] || cleanedData[field] === '') {

@@ -118,15 +118,6 @@ export default function NewClientPage() {
         setLoading(true)
 
         try {
-            const phoneFields = ['mobile_phone', 'phone', 'work_phone', 'whatsapp']
-            const cleanedData: any = { ...formData }
-            
-            phoneFields.forEach(field => {
-                if (!cleanedData[field] || cleanedData[field] === '') {
-                    cleanedData[field] = null
-                }
-            })
-
             const { data: { user } } = await supabase.auth.getUser()
 
             if (!user) {
@@ -135,19 +126,26 @@ export default function NewClientPage() {
             }
 
             // Clean and Format Data
-            const cleanedData: ClientInsert = {
+            const cleanedData: any = {
                 ...formData,
                 user_id: user.id,
-                phone: formData.mobile_phone || formData.phone || null, // Forzar que WhatsApp sea el número primordial
-                // Apply Title Case to names and texts
+                phone: formData.mobile_phone || formData.phone || null,
                 first_name: toTitleCase(formData.first_name || ''),
                 last_name: toTitleCase(formData.last_name || ''),
                 company_name: formData.company_name ? toTitleCase(formData.company_name) : null,
                 job_title: formData.job_title ? toTitleCase(formData.job_title) : null,
                 profession: formData.profession ? toTitleCase(formData.profession) : null,
                 whatsapp: formData.mobile_phone || formData.whatsapp || null,
-                status: 'lead' // Ensure status is set
+                status: 'lead',
+                birth_date: formData.birth_date || null
             }
+
+            const phoneFields = ['mobile_phone', 'phone', 'work_phone', 'whatsapp']
+            phoneFields.forEach(field => {
+                if (!cleanedData[field] || cleanedData[field] === '') {
+                    cleanedData[field] = null
+                }
+            })
 
             // Delete virtual fields not meant for SQL
             delete (cleanedData as any).mobile_phone;
