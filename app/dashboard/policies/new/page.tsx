@@ -148,7 +148,7 @@ export default function NewPolicyPage() {
 
     const fetchCatalogs = async () => {
         const [clientsRes, insurersRes, linesRes] = await Promise.all([
-            supabase.from('clients').select('id, first_name, last_name').order('first_name'),
+            supabase.from('clients').select('id, first_name, last_name, phone, whatsapp').order('first_name'),
             supabase.from('insurers').select('id, name, alias').eq('active', true).order('name'),
             supabase.from('insurance_lines').select('id, name, category').eq('active', true).order('name')
         ])
