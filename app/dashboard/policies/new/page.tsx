@@ -7,6 +7,13 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { calculateInstallments } from "@/lib/installment-engine"
 import { getInsurerConfig } from "@/lib/insurers-config"
+import { 
+    getWelcomeMessage, 
+    getPaymentCalendarMessage, 
+    getSecurityTipsMessage, 
+    getRenewalMessage, 
+    generateWhatsAppLink 
+} from "@/lib/whatsapp-templates"
 
 export default function NewPolicyPage() {
     const router = useRouter()
@@ -695,6 +702,28 @@ export default function NewPolicyPage() {
         { id: 4, name: 'Económicos', icon: FileText },
     ]
 
+    const handleSendWelcome = () => {
+        const client = clients.find(c => c.id === formData.client_id)
+        const insurer = insurers.find(i => i.id === formData.insurer_id)
+        const msg = getWelcomeMessage(
+            `${client?.first_name} ${client?.last_name}`,
+            formData.policy_number,
+            insurer?.name || 'Aseguradora',
+            lines.find(l => l.id === formData.branch_id)?.name || 'Seguro',
+            formData.payment_method,
+            formData.start_date,
+            formData.end_date,
+            parseNum(formData.premium_total),
+            installments[0] ? parseNum(installments[0].total_amount) : 0,
+            installments[1] ? parseNum(installments[1].total_amount) : 0,
+            formData.start_date, // Límite 1er pago
+            policyFileUrl || 'Link no disponible',
+            formData.currency === 'USD' ? 'USD$' : '$',
+            formData.description || 'Amplia'
+        )
+        window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+    }
+
     if (showSuccess) {
         return (
             <div className="max-w-xl mx-auto py-20 text-center space-y-8 animate-in fade-in zoom-in duration-500">
@@ -730,12 +759,19 @@ export default function NewPolicyPage() {
                     </div>
 
                     <div className="space-y-3 pt-4">
-                        <Link
-                            href={`/dashboard/clients/${formData.client_id}?tab=comunicaciones`}
-                            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 active:scale-[0.98]"
+                        <button
+                            onClick={handleSendWelcome}
+                            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-100 active:scale-[0.98]"
                         >
                             <MessageSquare className="w-5 h-5" />
-                            CONFIGURAR WHATSAPP & ALERTAS
+                            MANDAR WHATSAPP DE BIENVENIDA ✨
+                        </button>
+
+                        <Link
+                            href={`/dashboard/clients/${formData.client_id}?tab=comunicaciones`}
+                            className="w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold transition-all"
+                        >
+                            ⚙️ CONFIGURAR ALERTAS AUTOMÁTICAS
                         </Link>
 
                         <button
@@ -761,7 +797,7 @@ export default function NewPolicyPage() {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 06:55 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 07:10 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Nueva Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>

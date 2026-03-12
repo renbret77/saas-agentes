@@ -152,21 +152,21 @@ export const getWelcomeMessage = (
     currencySymbol: string = '$',
     coverage: string = 'Amplia / Según Carátula'
 ) => {
-    // Definimos emojis usando Unicode para evitar problemas de encoding en el navegador
-    const star = '\u2B50'
-    const diamond = '\uD83D\uDC8E'
-    const building = '\uD83C\uDFE2'
-    const shield = '\uD83D\uDEE1\uFE0F'
-    const pin = '\uD83D\uDCCD'
-    const card = '\uD83D\uDCB3'
-    const calendar = '\uD83D\uDCC5'
-    const dollar = '\uD83D\uDCB5'
-    const receipt = '\uD83E\uDDFE'
-    const sync = '\uD83D\uDD04'
-    const check = '\u2705'
-    const hourglass = '\u23F3'
-    const memo = '\uD83D\uDCC4'
-    const smile = '\uD83D\uDE0A'
+    // Definimos emojis literales para evitar problemas de encoding en el navegador
+    const star = '⭐'
+    const diamond = '💎'
+    const building = '🏢'
+    const shield = '🛡️'
+    const pin = '📍'
+    const card = '💳'
+    const calendar = '📅'
+    const dollar = '💵'
+    const receipt = '🧾'
+    const sync = '🔄'
+    const check = '✅'
+    const hourglass = '⏳'
+    const memo = '📜'
+    const smile = '😊'
 
     return [
         `${star} *¡BIENVENIDO A TU PROTECCIÓN PREMIUM!* ${star}`,
