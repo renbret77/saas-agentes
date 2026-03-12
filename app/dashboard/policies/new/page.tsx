@@ -11,7 +11,7 @@ import {
     getWelcomeMessage, 
     getPaymentCalendarMessage, 
     getSecurityTipsMessage, 
-    getRenewalMessage, 
+    getPreRenewalMessage, 
     generateWhatsAppLink 
 } from "@/lib/whatsapp-templates"
 

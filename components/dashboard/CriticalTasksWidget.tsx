@@ -13,7 +13,7 @@ import {
     BadgeCheck
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getCollectionMessage, getRenewalMessage, generateWhatsAppLink } from '@/lib/whatsapp-templates'
+import { getCollectionMessage, getPreRenewalMessage, generateWhatsAppLink } from '@/lib/whatsapp-templates'
 
 interface CriticalTask {
     id: string
@@ -208,7 +208,7 @@ export default function CriticalTasksWidget() {
                 '$'
             )
         } else {
-            return getRenewalMessage(
+            return getPreRenewalMessage(
                 task.clientName,
                 branchName,
                 insurerName,
