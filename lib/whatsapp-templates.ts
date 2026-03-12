@@ -312,3 +312,18 @@ const parseNum = (val: any) => {
     if (!val) return 0
     return parseFloat(String(val).replace(/,/g, '')) || 0
 }
+
+/**
+ * Genera un mensaje corto y directo exclusivamente con el link de la póliza (v31)
+ */
+export const getDirectLinkMessage = (clientName: string, policyLink: string) => {
+    return [
+        `*${clientName}*, ¡pica este link! ${String.fromCodePoint(0x1F449)}`,
+        '',
+        `${eShield} Aquí se encuentra tu carátula digital:`,
+        policyLink,
+        '',
+        `Guárdala bien para cualquier emergencia. ${eSmile}`
+    ].join('\n')
+}
+

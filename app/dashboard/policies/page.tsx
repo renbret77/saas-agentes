@@ -1,12 +1,12 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw, Link as LinkIcon } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
 import { getInsurerConfig } from "@/lib/insurers-config"
-import { getCollectionMessage, getWelcomeMessage, getPreRenewalMessage, getRenewedMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
+import { getCollectionMessage, getWelcomeMessage, getPreRenewalMessage, getRenewedMessage, getDirectLinkMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -237,7 +237,7 @@ export default function PoliciesPage() {
                                                         <span className="text-sm font-bold text-slate-700">
                                                             {policy.clients?.first_name} {policy.clients?.last_name}
                                                         </span>
-                                                        <span className="text-[10px] text-slate-400 font-medium italic">{policy.clients?.phone || 'Sin Teléfono'}</span>
+                                                        <span className="text-[10px] text-slate-400 font-medium italic">{policy.clients?.phone || policy.clients?.whatsapp || 'Sin Teléfono'}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5">
@@ -424,10 +424,9 @@ export default function PoliciesPage() {
                                                                     <FileText className="w-3 h-3" /> Endosos y Doc.
                                                                 </h4>
                                                                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                                                                    {policy.policy_documents?.filter((d: any) => d.document_type !== 'Carátula').length > 0 ? (
+                                                                    {policy.policy_documents?.length > 0 ? (
                                                                         <div className="divide-y divide-slate-100">
                                                                             {policy.policy_documents
-                                                                                .filter((d: any) => d.document_type !== 'Carátula')
                                                                                 .map((doc: any) => (
                                                                                     <div key={doc.id} className="p-2 flex items-center justify-between hover:bg-slate-50 transition-all">
                                                                                         <div className="flex flex-col">
@@ -521,39 +520,56 @@ export default function PoliciesPage() {
                                                             )}
 
                                                             {/* Botón: Póliza Renovada (Confirmación) */}
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                    const installments = policy.policy_installments || [];
-                                                                    const firstInst = installments.find((i: any) => i.installment_number === 1)?.total_amount || 0;
-                                                                    const subInst = installments.find((i: any) => i.installment_number === 2)?.total_amount || 0;
-                                                                    const limitDateFirst = installments.find((i: any) => i.installment_number === 1)?.due_date || policy.start_date;
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                                                    const installments = policy.policy_installments || [];
+                                                                                                    const firstInst = installments.find((i: any) => i.installment_number === 1)?.total_amount || 0;
+                                                                                                    const subInst = installments.find((i: any) => i.installment_number === 2)?.total_amount || 0;
+                                                                                                    const limitDateFirst = installments.find((i: any) => i.installment_number === 1)?.due_date || policy.start_date;
 
-                                                                    const renewedMsg = getRenewedMessage(
-                                                                        clientName,
-                                                                        policy.policy_number,
-                                                                        policy.insurers?.alias || policy.insurers?.name,
-                                                                        policy.insurance_lines?.name || 'Seguro',
-                                                                        policy.payment_method || 'Contado',
-                                                                        policy.start_date,
-                                                                        policy.end_date,
-                                                                        policy.premium_total,
-                                                                        firstInst,
-                                                                        subInst,
-                                                                        limitDateFirst,
-                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
-                                                                        policy.currency === 'USD' ? 'USD$' : '$'
-                                                                    );
+                                                                                                    const renewedMsg = getRenewedMessage(
+                                                                                                        clientName,
+                                                                                                        policy.policy_number,
+                                                                                                        policy.insurers?.alias || policy.insurers?.name,
+                                                                                                        policy.insurance_lines?.name || 'Seguro',
+                                                                                                        policy.payment_method || 'Contado',
+                                                                                                        policy.start_date,
+                                                                                                        policy.end_date,
+                                                                                                        policy.premium_total,
+                                                                                                        firstInst,
+                                                                                                        subInst,
+                                                                                                        limitDateFirst,
+                                                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                                                                                        policy.currency === 'USD' ? 'USD$' : '$'
+                                                                                                    );
 
-                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', renewedMsg);
-                                                                    window.open(waLink, '_blank');
-                                                                }}
-                                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
-                                                                title="Entregar carátula de renovación"
-                                                            >
-                                                                <Shield className="w-3.5 h-3.5 text-blue-500" /> Póliza Renovada
-                                                            </button>
+                                                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', renewedMsg);
+                                                                                                    window.open(waLink, '_blank');
+                                                                                                }}
+                                                                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                                                                                title="Entregar carátula de renovación"
+                                                                                            >
+                                                                                                <Shield className="w-3.5 h-3.5 text-blue-500" /> Póliza Renovada
+                                                                                            </button>
+
+                                                                                            {/* Botón: Link Directo (v31) */}
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                                                    const policyLink = policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'Link_no_disponible';
+                                                                                                    
+                                                                                                    const msg = getDirectLinkMessage(clientName, policyLink);
+                                                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg);
+                                                                                                    window.open(waLink, '_blank');
+                                                                                                }}
+                                                                                                className="px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
+                                                                                                title="Pica este link: Envía solo el acceso directo a la póliza"
+                                                                                            >
+                                                                                                <LinkIcon className="w-3.5 h-3.5" /> Link Directo
+                                                                                            </button>
 
                                                             {policy.notes && (
                                                                 <div className="flex-1 min-w-[200px] p-2 bg-amber-50/50 rounded-xl border border-amber-100/50 text-[10px] text-amber-800 italic leading-tight shadow-inner">

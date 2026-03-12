@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw, Link as LinkIcon } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import {
@@ -11,6 +11,7 @@ import {
     getSecurityTipsMessage,
     getPreRenewalMessage,
     getRenewedMessage,
+    getDirectLinkMessage,
     generateWhatsAppLink
 } from "@/lib/whatsapp-templates"
 
@@ -759,7 +760,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 08:35 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.19:47</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -891,6 +892,21 @@ export default function EditPolicyPage({ params }: { params: any }) {
                         className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm border border-indigo-100"
                     >
                         CALENDARIO 📅
+                    </button>
+                    
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const policyLink = documents.find(d => d.document_type === 'Carátula')?.file_url || 'Link_no_disponible'
+                            const msg = getDirectLinkMessage(
+                                `${client?.first_name} ${client?.last_name}`,
+                                policyLink
+                            )
+                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                        }}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm border border-emerald-100"
+                    >
+                        PICA ESTE LINK 🔗
                     </button>
                 </div>
 
