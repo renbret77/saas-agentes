@@ -96,10 +96,10 @@ export default function NewPolicyPage() {
 
     const parseNum = (val: any) => {
         try {
-            if (val === null || val === undefined) return 0;
-            const strVal = String(val).trim();
-            if (strVal === '') return 0;
-            const parsed = parseFloat(strVal.replace(/,/g, ''));
+            if (!val) return 0;
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            const strVal = String(val).replace(/[^0-9.-]/g, '');
+            const parsed = parseFloat(strVal);
             return isNaN(parsed) ? 0 : parsed;
         } catch { return 0; }
     };

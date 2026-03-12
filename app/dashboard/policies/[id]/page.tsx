@@ -95,15 +95,20 @@ export default function EditPolicyPage({ params }: { params: any }) {
 
     const formatCurrency = (val: any) => {
         try {
-            const num = parseNum(val);
-            return num.toFixed(2); // Hard bypass of locale formatting just in case
+            return parseNum(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         } catch { return "0.00"; }
     };
 
     const [installments, setInstallments] = useState<any[]>([])
 
     useEffect(() => {
-        if (policyId) fetchInitialData()
+        if (policyId) {
+            fetchInitialData()
+            // v20: Permitir entrar directo a una pestaña (ej. para subir manual)
+            const params = new URLSearchParams(window.location.search)
+            const startStep = params.get('step')
+            if (startStep) setStep(parseInt(startStep))
+        }
     }, [policyId])
 
     const fetchInitialData = async () => {
@@ -210,7 +215,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
         try {
             const fileExt = file.name.split('.').pop()
             const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
-            const filePath = `manual_uploads/${fileName}`
+            const filePath = `caratulas/${fileName}`
 
             const { error: uploadError } = await supabase.storage
                 .from('policy_docs')
@@ -236,8 +241,9 @@ export default function EditPolicyPage({ params }: { params: any }) {
             fetchDocuments()
             alert('Documento cargado con éxito')
         } catch (err: any) {
-            console.error("Error uploading doc:", err)
-            alert("Error al cargar documento")
+            console.error("Error detailed uploading doc:", err)
+            // v20: More detail for the user
+            alert(`Error al cargar documento: ${err.message || 'Error desconocido'}`)
         } finally {
             setUploadingDoc(false)
             e.target.value = ''
