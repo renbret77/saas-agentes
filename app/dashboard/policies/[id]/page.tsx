@@ -15,6 +15,7 @@ import {
     getBrandedViewerLink,
     generateWhatsAppLink
 } from "@/lib/whatsapp-templates"
+import { generatePaymentSchedulePDF, generateRecommendationsPDF } from "@/lib/pdf-generator"
 
 export default function EditPolicyPage({ params }: { params: any }) {
     const resolvedParams: any = use(params)
@@ -26,6 +27,15 @@ export default function EditPolicyPage({ params }: { params: any }) {
     const [error, setError] = useState<string | null>(null)
     const [documents, setDocuments] = useState<any[]>([])
     const [uploadingDoc, setUploadingDoc] = useState(false)
+    const [sendingCombo, setSendingCombo] = useState(false)
+
+    // Manuales de Pago por Aseguradora
+    const insurerManuals: Record<string, string> = {
+        'QUALITAS': 'https://www.qualitas.com.mx/static/instrucciones_pago.pdf',
+        'GNP': 'https://www.gnp.com.mx/formas-de-pago',
+        'AXA': 'https://axa.mx/formas-de-pago',
+        'CHUBB': 'https://www.chubb.com/mx-es/pago-de-poliza.html'
+    }
 
     // Catalogos
     const [clients, setClients] = useState<any[]>([])
@@ -211,7 +221,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
 
     const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (!file) return
+        if (!file || !policyId) return
 
         setUploadingDoc(true)
         try {
@@ -233,21 +243,91 @@ export default function EditPolicyPage({ params }: { params: any }) {
                 .from('policy_documents') as any)
                 .insert({
                     policy_id: policyId,
-                    document_type: selectedDocType,
-                    file_url: publicUrl
+                    name: file.name,
+                    file_url: publicUrl,
+                    document_type: selectedDocType || 'Otro'
                 })
 
             if (dbError) throw dbError
 
             fetchDocuments()
+            
+            // Sugerencia de manual de pago
+            const insurerName = insurers.find(i => i.id === formData.insurer_id)?.name?.toUpperCase() || ''
+            const manualUrl = Object.entries(insurerManuals).find(([k]) => insurerName.includes(k))?.[1]
+            if (manualUrl && selectedDocType === 'Carátula') {
+                if (confirm(`¿Deseas adjuntar también el Manual de Pago de ${insurerName}?`)) {
+                    await supabase.from('policy_documents').insert({
+                        policy_id: policyId,
+                        name: `Manual_Pago_${insurerName}.pdf`,
+                        file_url: manualUrl,
+                        document_type: 'Otro'
+                    })
+                    fetchDocuments()
+                }
+            }
+            setSelectedDocType('')
             alert('Documento cargado con éxito')
         } catch (err: any) {
             console.error("Error detailed uploading doc:", err)
-            // v20: More detail for the user
             alert(`Error al cargar documento: ${err.message || 'Error desconocido'}`)
         } finally {
             setUploadingDoc(false)
             e.target.value = ''
+        }
+    }
+
+    const handleGeneratePDF = async (type: 'payment' | 'recommendations') => {
+        if (!policyId) return
+        setUploadingDoc(true)
+        try {
+            const insurerName = insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora'
+            const client = clients.find(c => c.id === formData.client_id)
+            const clientName = `${client?.first_name} ${client?.last_name}`
+            
+            let blob: Blob
+            let fileName: string
+            let docType: string
+
+            if (type === 'payment') {
+                blob = await generatePaymentSchedulePDF(clientName, formData.policy_number, insurerName, installments, formData.currency)
+                fileName = `Calendario_Pagos_${formData.policy_number}.pdf`
+                docType = 'Recibo'
+            } else {
+                const branch = lines.find(l => l.id === formData.branch_id)?.name || 'Seguro'
+                blob = await generateRecommendationsPDF(clientName, branch)
+                fileName = `Recomendaciones_${branch}.pdf`
+                docType = 'Otro'
+            }
+
+            const uploadPath = `automated/${Date.now()}_${fileName}`
+            const { error: uploadError } = await supabase.storage
+                .from('client_docs')
+                .upload(uploadPath, blob)
+
+            if (uploadError) throw uploadError
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('client_docs')
+                .getPublicUrl(uploadPath)
+
+            const { error: dbError } = await (supabase
+                .from('policy_documents') as any)
+                .insert({
+                    policy_id: policyId,
+                    name: fileName,
+                    file_url: publicUrl,
+                    document_type: docType
+                })
+
+            if (dbError) throw dbError
+            fetchDocuments()
+            alert("¡PDF generado y guardado con éxito!")
+        } catch (err: any) {
+            console.error("Error generating PDF:", err)
+            alert("Error al generar PDF: " + (err.message || 'Error desconocido'))
+        } finally {
+            setUploadingDoc(false)
         }
     }
 
@@ -767,7 +847,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:50</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:60</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -830,11 +910,29 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 formData.description || 'Amplia'
                             )
                             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                            setSendingCombo(true)
                         }}
-                        className="bg-slate-900 hover:bg-black text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                        className={`text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sendingCombo ? 'bg-emerald-600 text-white animate-pulse' : 'bg-slate-900 text-white hover:bg-black'}`}
                     >
-                        BIENVENIDA ✨
+                        {sendingCombo ? 'ENVIAR LINK DIRECTO 🔗' : 'BIENVENIDA ✨'}
                     </button>
+
+                    {sendingCombo && (
+                        <button
+                            onClick={() => {
+                                const client = clients.find(c => c.id === formData.client_id)
+                                const clientName = `${client?.first_name} ${client?.last_name}`
+                                const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
+                                const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula')
+                                const msg = getDirectLinkMessage(clientName, brandedLink)
+                                window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                                setSendingCombo(false)
+                            }}
+                            className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-2 rounded-xl border border-emerald-200 animate-bounce"
+                        >
+                            ENVIAR LINK AHORA! ⚡
+                        </button>
+                    )}
 
                     {/* Botón: Pre-Renovación (Recordatorio 30 días) */}
                     {(Math.ceil((new Date(formData.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 30) && (
@@ -1011,6 +1109,22 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                         title={!selectedDocType ? "Selecciona una categoría primero" : ""}
                                     >
                                         {uploadingDoc ? 'Cargando...' : <><Upload className="w-4 h-4" /> Subir</>}
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => handleGeneratePDF('payment')}
+                                        disabled={uploadingDoc}
+                                        className="text-[10px] font-bold px-3 py-2 bg-slate-100 text-slate-700 rounded-xl border border-slate-200 hover:bg-slate-200 transition-all"
+                                    >
+                                        Generar Calendario PDF 📅
+                                    </button>
+                                    <button 
+                                        onClick={() => handleGeneratePDF('recommendations')}
+                                        disabled={uploadingDoc}
+                                        className="text-[10px] font-bold px-3 py-2 bg-slate-100 text-slate-700 rounded-xl border border-slate-200 hover:bg-slate-200 transition-all"
+                                    >
+                                        Guía de Seguridad PDF 🛡️
                                     </button>
                                 </div>
                             </div>

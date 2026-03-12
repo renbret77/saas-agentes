@@ -16,7 +16,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   
   return {
     title: `${type} Digital | ${name}`,
-    description: `Portal de Protección Premium - Visualice su ${type.toLowerCase()} de forma segura.`
+    description: `Portal de Protección Premium - Visualice su ${type.toLowerCase()} de forma segura.`,
+    openGraph: {
+      title: `${type} Digital | ${name}`,
+      description: `Protección Premium - Rene Breton Seguros`,
+      images: [
+        {
+          url: 'https://wctezsysrmaoamtuzzts.supabase.co/storage/v1/object/public/client_docs/assets/shield-logo.png',
+          width: 800,
+          height: 600,
+          alt: 'Escudo de Protección',
+        },
+      ],
+      type: 'website',
+    },
   }
 }
 
