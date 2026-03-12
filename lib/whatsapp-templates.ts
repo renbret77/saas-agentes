@@ -12,7 +12,13 @@ const formatDate = (dateString: string) => {
 // Helper para generar el link de WhatsApp
 export const generateWhatsAppLink = (phone: string, text: string) => {
     // Limpiar el teléfono para que solo tenga números
-    const cleanPhone = phone.replace(/\D/g, '')
+    let cleanPhone = phone.replace(/\D/g, '')
+    
+    // v28: Normalización para México (Si son 10 dígitos, agregar 52)
+    if (cleanPhone.length === 10) {
+        cleanPhone = '52' + cleanPhone
+    }
+    
     const encodedText = encodeURIComponent(text)
     return `https://wa.me/${cleanPhone}?text=${encodedText}`
 }
