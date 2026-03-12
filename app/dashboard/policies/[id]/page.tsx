@@ -100,6 +100,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
     };
 
     const [installments, setInstallments] = useState<any[]>([])
+    const [selectedDocType, setSelectedDocType] = useState('Carátula')
 
     useEffect(() => {
         if (policyId) {
@@ -231,7 +232,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                 .from('policy_documents') as any)
                 .insert({
                     policy_id: policyId,
-                    document_type: 'Anexo / Endoso',
+                    document_type: selectedDocType,
                     file_url: publicUrl
                 })
 
@@ -765,7 +766,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:05</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:18</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -822,7 +823,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date, // Límite 1er pago
-                                documents.find(d => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
@@ -873,7 +874,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date,
-                                documents.find(d => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
@@ -902,7 +903,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
-                            const policyLink = documents.find(d => d.document_type === 'Carátula')?.file_url || 'Link_no_disponible'
+                            const policyLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
                             const msg = getDirectLinkMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 policyLink
@@ -990,16 +991,29 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 <p className="text-slate-500 text-sm italic">Gestione carátulas, endosos y anexos.</p>
                             </div>
 
-                            <div className="relative">
-                                <input
-                                    type="file"
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    onChange={handleDocUpload}
-                                    disabled={uploadingDoc}
-                                />
-                                <button className={`flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-sm border border-emerald-100 hover:bg-emerald-100 transition-all ${uploadingDoc ? 'opacity-50' : ''}`}>
-                                    {uploadingDoc ? 'Cargando...' : <><Upload className="w-4 h-4" /> Subir Documento</>}
-                                </button>
+                            <div className="flex items-center gap-3">
+                                <select
+                                    value={selectedDocType}
+                                    onChange={(e) => setSelectedDocType(e.target.value)}
+                                    className="p-2 text-xs font-bold border border-slate-200 rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                >
+                                    <option value="Carátula">Carátula ✨</option>
+                                    <option value="Anexo / Endoso">Anexo / Endoso</option>
+                                    <option value="Condiciones">Condiciones</option>
+                                    <option value="Recibo">Recibo de Pago</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        onChange={handleDocUpload}
+                                        disabled={uploadingDoc}
+                                    />
+                                    <button className={`flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-emerald-700 transition-all ${uploadingDoc ? 'opacity-50' : ''}`}>
+                                        {uploadingDoc ? 'Cargando...' : <><Upload className="w-4 h-4" /> Subir</>}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
