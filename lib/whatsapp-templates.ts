@@ -60,6 +60,20 @@ export const generateWhatsAppLink = (phone: any, text: string) => {
 }
 
 /**
+ * Encapsula un link de Supabase en una página con branding del agente (v31)
+ */
+export const getBrandedViewerLink = (url: string, clientName: string, docType: string) => {
+    if (!url || url.includes('no_disponible')) return url
+    const baseUrl = "https://portal-eight-kohl.vercel.app/portal/view"
+    const params = new URLSearchParams({
+        u: url,
+        n: clientName,
+        t: docType
+    })
+    return `${baseUrl}?${params.toString()}`
+}
+
+/**
  * Genera el copy de WhatsApp basado en las reglas de negocio (v26 - Formato Premium Contextual)
  */
 export const getCollectionMessage = (

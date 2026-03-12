@@ -12,6 +12,7 @@ import {
     getPreRenewalMessage,
     getRenewedMessage,
     getDirectLinkMessage,
+    getBrandedViewerLink,
     generateWhatsAppLink
 } from "@/lib/whatsapp-templates"
 
@@ -100,7 +101,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
     };
 
     const [installments, setInstallments] = useState<any[]>([])
-    const [selectedDocType, setSelectedDocType] = useState('Carátula')
+    const [selectedDocType, setSelectedDocType] = useState('')
 
     useEffect(() => {
         if (policyId) {
@@ -766,7 +767,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:18</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:40</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -810,11 +811,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
-                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible'
+                            const brandedLink = getBrandedViewerLink(rawLink, `${client?.first_name} ${client?.last_name}`, 'Carátula')
+                            
                             const msg = getWelcomeMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
-                                insurer?.name || 'Aseguradora',
+                                insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora',
                                 lines.find(l => l.id === formData.branch_id)?.name || 'Seguro',
                                 formData.payment_method,
                                 formData.start_date,
@@ -823,7 +826,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date, // Límite 1er pago
-                                documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                brandedLink,
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
@@ -862,11 +865,14 @@ export default function EditPolicyPage({ params }: { params: any }) {
                             const client = clients.find(c => c.id === formData.client_id)
                             const insurer = insurers.find(i => i.id === formData.insurer_id)
                             const line = lines.find(l => l.id === formData.branch_id)
+                            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible'
+                            const brandedLink = getBrandedViewerLink(rawLink, `${client?.first_name} ${client?.last_name}`, 'Carátula')
+
                             const msg = getRenewedMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
-                                insurer?.name || 'Aseguradora',
-                                line?.name || 'Seguro',
+                                insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora',
+                                lines.find(l => l.id === formData.branch_id)?.name || 'Seguro',
                                 formData.payment_method,
                                 formData.start_date,
                                 formData.end_date,
@@ -874,7 +880,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date,
-                                documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                brandedLink,
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
@@ -888,25 +894,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
-                            const msg = getPaymentCalendarMessage(
-                                `${client?.first_name} ${client?.last_name}`,
-                                formData.policy_number,
-                                installments
-                            )
-                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
-                        }}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm border border-indigo-100"
-                    >
-                        CALENDARIO 📅
-                    </button>
-                    
-                    <button
-                        onClick={() => {
-                            const client = clients.find(c => c.id === formData.client_id)
-                            const policyLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
+                            const clientName = `${client?.first_name} ${client?.last_name}`
+                            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
+                            const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula')
+
                             const msg = getDirectLinkMessage(
-                                `${client?.first_name} ${client?.last_name}`,
-                                policyLink
+                                clientName,
+                                brandedLink
                             )
                             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
                         }}
@@ -995,8 +989,9 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 <select
                                     value={selectedDocType}
                                     onChange={(e) => setSelectedDocType(e.target.value)}
-                                    className="p-2 text-xs font-bold border border-slate-200 rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                    className={`p-2 text-xs font-bold border rounded-xl bg-white shadow-sm outline-none transition-all ${!selectedDocType ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20'}`}
                                 >
+                                    <option value="">-- Seleccionar Categoría --</option>
                                     <option value="Carátula">Carátula ✨</option>
                                     <option value="Anexo / Endoso">Anexo / Endoso</option>
                                     <option value="Condiciones">Condiciones</option>
@@ -1006,11 +1001,18 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 <div className="relative">
                                     <input
                                         type="file"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        className={`absolute inset-0 w-full h-full opacity-0 ${!selectedDocType ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                         onChange={handleDocUpload}
-                                        disabled={uploadingDoc}
+                                        disabled={uploadingDoc || !selectedDocType}
                                     />
-                                    <button className={`flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-emerald-700 transition-all ${uploadingDoc ? 'opacity-50' : ''}`}>
+                                    <button 
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all ${
+                                            !selectedDocType 
+                                            ? 'bg-slate-100 text-slate-400 border border-slate-200' 
+                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                        } ${uploadingDoc ? 'opacity-50' : ''}`}
+                                        title={!selectedDocType ? "Selecciona una categoría primero" : ""}
+                                    >
                                         {uploadingDoc ? 'Cargando...' : <><Upload className="w-4 h-4" /> Subir</>}
                                     </button>
                                 </div>
