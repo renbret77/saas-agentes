@@ -6,7 +6,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
 import { getInsurerConfig } from "@/lib/insurers-config"
-import { getCollectionMessage, getWelcomeMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
+import { getCollectionMessage, getWelcomeMessage, getRenewalMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -38,7 +38,7 @@ export default function PoliciesPage() {
                 .from('policies')
                 .select(`
                     *,
-                    clients (first_name, last_name, phone),
+                    clients (first_name, last_name, phone, whatsapp),
                     insurers (name, alias),
                     insurance_lines (name),
                     policy_installments (id, installment_number, total_amount, status, whatsapp_sent, whatsapp_status, due_date),
@@ -362,7 +362,7 @@ export default function PoliciesPage() {
                                                                                                                 policy.sub_branch
                                                                                                             );
 
-                                                                                                            const waLink = `https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+                                                                                                            const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg);
                                                                                                             window.open(waLink, '_blank');
                                                                                                         }}
                                                                                                         className="text-[9px] font-black text-emerald-600 hover:text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95 flex items-center gap-1"
@@ -476,11 +476,11 @@ export default function PoliciesPage() {
                                                                         firstInst,
                                                                         subInst,
                                                                         limitDateFirst,
-                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://rb-proyectos.vercel.app',
+                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || policy.policy_documents?.[0]?.file_url || 'https://portal-eight-kohl.vercel.app',
                                                                         policy.currency === 'USD' ? 'USD$' : '$'
                                                                     );
 
-                                                                    const waLink = generateWhatsAppLink(policy.clients?.phone || '', welcomeMsg);
+                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', welcomeMsg);
                                                                     window.open(waLink, '_blank');
                                                                 }}
                                                                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md active:scale-95 border border-slate-800"
@@ -491,8 +491,15 @@ export default function PoliciesPage() {
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                    const msg = encodeURIComponent(`🕒 *AVISO DE RENOVACIÓN* 🕒 \n\nHola *${clientName}*, te informo que tu póliza *${policy.policy_number}* está próxima a renovarse. \n\n¿Gustas que revisemos las nuevas condiciones? 😊`);
-                                                                    window.open(`https://wa.me/${policy.clients?.phone?.replace(/\D/g, '')}?text=${msg}`, '_blank');
+                                                                    const msg = getRenewalMessage(
+                                                                        clientName,
+                                                                        policy.insurance_lines?.name || 'Seguro',
+                                                                        policy.insurers?.alias || policy.insurers?.name || '',
+                                                                        policy.policy_number,
+                                                                        policy.end_date,
+                                                                        policy.premium_total
+                                                                    );
+                                                                    window.open(generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg), '_blank');
                                                                 }}
                                                                 className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
                                                             >
@@ -514,6 +521,12 @@ export default function PoliciesPage() {
                         </table>
                     </div>
                 )}
+            </div>
+
+            {/* Version Footer */}
+            <div className="flex items-center justify-between pt-8 border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 07:40 PM</span>
+                <span className="text-[10px] font-bold text-slate-300">© 2026 Portal SaaS</span>
             </div>
         </div>
     );
