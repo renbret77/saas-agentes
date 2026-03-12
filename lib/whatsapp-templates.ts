@@ -66,7 +66,7 @@ export const getBrandedViewerLink = (url: string, clientName: string, docType: s
     if (!url || url.includes('no_disponible')) return url
     const baseUrl = "https://portal-eight-kohl.vercel.app/portal/view"
     const params = new URLSearchParams({
-        u: url,
+        p: url.split('/').pop() || '', // Solo el nombre del archivo
         n: clientName,
         t: docType
     })
@@ -223,7 +223,9 @@ export const getRenewedMessage = (
         `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
         `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
-        `Puedes visualizar tu nueva carátula directamente aquí:`,
+        `Presiona el siguiente enlace para visualizar tu nueva carátula de forma segura.`,
+        '',
+        `💻 *BOTÓN DE ACCESO:*`,
         policyLink,
         '',
         `Gracias por seguir confiando en nosotros. ¡Quedo a tus órdenes! ${eSmile}`,
@@ -273,7 +275,9 @@ export const getWelcomeMessage = (
         `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
         `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
-        `Puedes descargar tu póliza completa aquí:`,
+        `Presiona el siguiente enlace para abrir tu póliza en el Portal Digital.`,
+        '',
+        `💻 *BOTÓN DE ACCESO:*`,
         policyLink,
         '',
         `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${eSmile}`,
@@ -335,6 +339,8 @@ export const getDirectLinkMessage = (clientName: string, policyLink: string) => 
         `*${clientName}*, ¡pica este link! ${String.fromCodePoint(0x1F449)}`,
         '',
         `${eShield} Aquí se encuentra tu carátula digital:`,
+        '',
+        `💻 *BOTÓN DE ACCESO:*`,
         policyLink,
         '',
         `Guárdala bien para cualquier emergencia. ${eSmile}`

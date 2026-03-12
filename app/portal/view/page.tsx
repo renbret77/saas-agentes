@@ -3,7 +3,7 @@ import { Metadata } from 'next'
 
 interface Props {
   searchParams: Promise<{
-    u?: string; // URL (base64)
+    p?: string; // Path (filename only)
     n?: string; // Name
     t?: string; // Type
   }>
@@ -21,9 +21,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function PortalViewPage({ searchParams }: Props) {
-  const { u, n, t } = await searchParams
+  const { p, n, t } = await searchParams
   
-  if (!u) {
+  if (!p) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 max-w-md w-full text-center space-y-4">
@@ -37,7 +37,8 @@ export default async function PortalViewPage({ searchParams }: Props) {
     )
   }
 
-  const fileUrl = decodeURIComponent(u)
+  const supabaseUrl = "https://wctezsysrmaoamtuzzts.supabase.co/storage/v1/object/public/client_docs/caratulas/"
+  const fileUrl = `${supabaseUrl}${decodeURIComponent(p)}`
   const clientName = n ? decodeURIComponent(n) : 'Cliente'
   const docType = t ? decodeURIComponent(t) : 'Documento'
 
