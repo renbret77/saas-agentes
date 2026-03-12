@@ -186,13 +186,13 @@ export default function BillingPage() {
                                 Licencia PRO
                             </div>
                             <h4 className="text-5xl font-black text-slate-900 tracking-tighter mb-4">
-                                ${isYearly ? '304' : '380'} <span className="text-lg text-slate-400 font-medium tracking-normal">MXN/mes</span>
+                                ${isYearly ? '440' : '550'} <span className="text-lg text-slate-400 font-medium tracking-normal">MXN/mes</span>
                             </h4>
                             <p className="text-slate-500 font-medium mb-8">El estándar indispensable para Agentes que quieren crecer su cartera sin topar.</p>
 
                             <ul className="space-y-4 mb-10">
                                 <li className="flex items-start gap-3 text-slate-700 font-medium">
-                                    <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" /> <span className="pt-0.5">Clientes y Pólizas <strong>Ilimitadas</strong>.</span>
+                                    <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" /> <span className="pt-0.5">Hasta <strong>2,500 Pólizas</strong> activos.</span>
                                 </li>
                                 <li className="flex items-start gap-3 text-slate-700 font-medium">
                                     <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" /> <span className="pt-0.5">Hasta 10 asistentes (Sub-cuentas) conectables.</span>

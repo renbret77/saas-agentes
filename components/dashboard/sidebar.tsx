@@ -14,8 +14,6 @@ import {
     ShieldCheck,
     LogOut,
     Menu,
-    Shield,
-    TrendingUp,
     ShieldAlert,
     Target,
     Heart,
@@ -23,7 +21,8 @@ import {
     Coins,
     Zap,
     Gift,
-    Terminal
+    Terminal,
+    Calendar as CalendarIcon
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -31,6 +30,7 @@ import { UpsellModal } from "./upsell-modal"
 
 const menuItems = [
     { icon: LayoutDashboard, label: "Resumen", href: "/dashboard" },
+    { icon: CalendarIcon, label: "Agenda / Mando", href: "/dashboard/agenda" },
     { icon: Users, label: "Clientes", href: "/dashboard/clients" },
     { icon: Sparkles, label: "Cotizaciones", href: "/dashboard/quotes" },
     { icon: TrendingUp, label: "CRM / Pipeline", href: "/dashboard/pipeline" },
