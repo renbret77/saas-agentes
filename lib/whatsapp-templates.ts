@@ -141,9 +141,10 @@ export const getCollectionMessage = (
 }
 
 /**
- * Genera el copy de WhatsApp para Renovaciones (v24)
+ * Genera el copy de WhatsApp para Recordatorios de Pre-Renovación (v30)
+ * Orientado a avisar que la póliza VENCE PRONTO.
  */
-export const getRenewalMessage = (
+export const getPreRenewalMessage = (
     clientName: string,
     policyType: string,
     insurerName: string,
@@ -152,21 +153,69 @@ export const getRenewalMessage = (
     estimatedPremium?: number,
     currencySymbol: string = '$',
 ) => {
-    return `${eClock} *AVISO DE RENOVACIÓN* ${eClock}
+    return `${eClock} *RECORDATORIO DE RENOVACIÓN* ${eClock}
  
 Hola *${clientName}*, te saludo con gusto. ${eWave}
  
-Te informo que tu póliza está próxima a vencer y es momento de asegurar la continuidad de tu protección:
+Te informo que tu póliza está próxima a vencer y es el momento ideal para revisar las condiciones de tu renovación:
  
 ${eBuilding} *Aseguradora:* ${insurerName}
 ${eShield} *Ramo:* ${policyType}
 🔢 *Póliza:* *${policyNumber}*
-${eCalendar} *Vencimiento:* *${formatDate(endDate)}*
+${eCalendar} *Vencimiento Actual:* *${formatDate(endDate)}*
  
-${estimatedPremium ? `${eDollar} *Prima estimada: ${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*\n` : ''}
-¿Gustas que procedamos con la renovación automática o prefieres que revisemos otras opciones de costo/cobertura? 
- 
-Quedo atento para apoyarte y que sigas siempre protegido. ${eSmile}`
+¿Gustas que revisemos la propuesta para este nuevo periodo? Quedo a tus órdenes ante cualquier duda o comentario para que sigas siempre protegido. ${eSmile}`
+}
+
+/**
+ * Genera el copy de WhatsApp para Pólizas YA RENOVADAS (v30)
+ * Orientado a entregar la nueva póliza confirmando que ya se renovó.
+ */
+export const getRenewedMessage = (
+    clientName: string,
+    policyNumber: string,
+    insurerName: string,
+    policyType: string,
+    paymentMethod: string,
+    startDate: string,
+    endDate: string,
+    premiumTotal: number,
+    firstInstallment: number,
+    subsequentInstallment: number,
+    limitDateFirst: string,
+    policyLink: string,
+    currencySymbol: string = '$',
+    coverage: string = 'Amplia / Según Carátula'
+) => {
+    return [
+        `${eSync} *¡TU RENOVACIÓN HA SIDO EXITOSA!* ${eSync}`,
+        '',
+        `Hola *${clientName}*, ¡un gusto saludarte! Te confirmo que tu protección ha sido renovada con éxito por un nuevo periodo.`,
+        '',
+        `${eDiamond} *DETALLES DE TU NUEVA PÓLIZA*`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `${eBuilding} *Aseguradora:* ${insurerName}`,
+        `🔢 *Póliza:* *${policyNumber}*`,
+        `${eShield} *Ramo:* ${policyType}`,
+        `${ePin} *Cobertura:* ${coverage}`,
+        `${eCard} *Forma de Pago:* ${paymentMethod}`,
+        `${eCalendar} *Vigencia:* del *${formatDate(startDate)}* al *${formatDate(endDate)}*`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        '',
+        `${eDollar} *PRIMAS Y RECIBOS*`,
+        `${eDollar} *Prima Total:* *${currencySymbol}${premiumTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
+        `${eReceipt} *1er Recibo:* ${currencySymbol}${firstInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        subsequentInstallment > 0 ? `${eSync} *Subsecuentes:* ${currencySymbol}${subsequentInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : `${eCheck} *Pago Único / Contado*`,
+        `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
+        '',
+        `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
+        `Puedes visualizar tu nueva carátula directamente aquí:`,
+        policyLink,
+        '',
+        `Gracias por seguir confiando en nosotros. ¡Quedo a tus órdenes! ${eSmile}`,
+        '',
+        `*PORTAL DE PROTECCIÓN PREMIUM*`
+    ].join('\n')
 }
 
 /**

@@ -2,14 +2,15 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import {
     getWelcomeMessage,
     getPaymentCalendarMessage,
     getSecurityTipsMessage,
-    getRenewalMessage,
+    getPreRenewalMessage,
+    getRenewedMessage,
     generateWhatsAppLink
 } from "@/lib/whatsapp-templates"
 
@@ -758,7 +759,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 07:40 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 08:35 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -815,16 +816,68 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 installments[0] ? parseNum(installments[0].total_amount) : 0,
                                 installments[1] ? parseNum(installments[1].total_amount) : 0,
                                 formData.start_date, // Límite 1er pago
-                                documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link no disponible',
+                                documents.find(d => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
                             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
                         }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                        className="bg-slate-900 hover:bg-black text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
                     >
                         BIENVENIDA ✨
                     </button>
+
+                    {/* Botón: Pre-Renovación (Recordatorio 30 días) */}
+                    {(Math.ceil((new Date(formData.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 30) && (
+                        <button
+                            onClick={() => {
+                                const client = clients.find(c => c.id === formData.client_id)
+                                const insurer = insurers.find(i => i.id === formData.insurer_id)
+                                const line = lines.find(l => l.id === formData.branch_id)
+                                const msg = getPreRenewalMessage(
+                                    `${client?.first_name} ${client?.last_name}`,
+                                    line?.name || 'Seguro',
+                                    insurer?.name || 'Aseguradora',
+                                    formData.policy_number,
+                                    formData.end_date,
+                                    parseNum(formData.premium_total)
+                                )
+                                window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                            }}
+                            className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" /> RECORDATORIO 🕒
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const line = lines.find(l => l.id === formData.branch_id)
+                            const msg = getRenewedMessage(
+                                `${client?.first_name} ${client?.last_name}`,
+                                formData.policy_number,
+                                insurer?.name || 'Aseguradora',
+                                line?.name || 'Seguro',
+                                formData.payment_method,
+                                formData.start_date,
+                                formData.end_date,
+                                parseNum(formData.premium_total),
+                                installments[0] ? parseNum(installments[0].total_amount) : 0,
+                                installments[1] ? parseNum(installments[1].total_amount) : 0,
+                                formData.start_date,
+                                documents.find(d => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                formData.currency === 'USD' ? 'USD$' : '$',
+                                formData.description || 'Amplia'
+                            )
+                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                        }}
+                        className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                        RENOVADA 🎉
+                    </button>
+                    
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
@@ -835,38 +888,9 @@ export default function EditPolicyPage({ params }: { params: any }) {
                             )
                             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
                         }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm border border-indigo-100"
                     >
                         CALENDARIO 📅
-                    </button>
-                    <button
-                        onClick={() => {
-                            const client = clients.find(c => c.id === formData.client_id)
-                            const msg = getSecurityTipsMessage(`${client?.first_name} ${client?.last_name}`)
-                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
-                        }}
-                        className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
-                    >
-                        TIPS 🛡️
-                    </button>
-                    <button
-                        onClick={() => {
-                            const client = clients.find(c => c.id === formData.client_id)
-                            const insurer = insurers.find(i => i.id === formData.insurer_id)
-                            const line = lines.find(l => l.id === formData.branch_id)
-                            const msg = getRenewalMessage(
-                                `${client?.first_name} ${client?.last_name}`,
-                                line?.name || 'Seguro',
-                                insurer?.name || 'Aseguradora',
-                                formData.policy_number,
-                                formData.end_date,
-                                parseNum(formData.premium_total)
-                            )
-                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
-                        }}
-                        className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
-                    >
-                        RENOVACIÓN 🕒
                     </button>
                 </div>
 

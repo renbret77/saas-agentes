@@ -1,12 +1,12 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
 import { getInsurerConfig } from "@/lib/insurers-config"
-import { getCollectionMessage, getWelcomeMessage, getRenewalMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
+import { getCollectionMessage, getWelcomeMessage, getPreRenewalMessage, getRenewedMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -199,7 +199,12 @@ export default function PoliciesPage() {
                                 {filteredPolicies.map((policy, index) => {
                                     const isExpanded = expandedRow === policy.id;
                                     const status = getComputedStatus(policy);
-                                    const paidInstallments = policy.policy_installments?.length || 0; // Simplificado por ahora
+                                    
+                                    // Lógica de Pre-Renovación (30 días antes)
+                                    const endDate = new Date(policy.end_date);
+                                    const diffTime = endDate.getTime() - today.getTime();
+                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                    const isPreRenewalWindow = diffDays <= 30 && diffDays >= 0;
 
                                     return (
                                         <React.Fragment key={policy.id}>
@@ -453,8 +458,10 @@ export default function PoliciesPage() {
                                                         {/* Quick Actions Bar */}
                                                         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
                                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5 grayscale opacity-70">
-                                                                <MessageSquare className="w-3 h-3" /> Canales de Entrega:
+                                                                <MessageSquare className="w-3 h-3" /> Acciones Rápidas:
                                                             </span>
+                                                            
+                                                            {/* Botón: Bienvenida (Alta Nueva) */}
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -476,7 +483,7 @@ export default function PoliciesPage() {
                                                                         firstInst,
                                                                         subInst,
                                                                         limitDateFirst,
-                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || policy.policy_documents?.[0]?.file_url || 'https://portal-eight-kohl.vercel.app',
+                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
                                                                         policy.currency === 'USD' ? 'USD$' : '$'
                                                                     );
 
@@ -484,27 +491,70 @@ export default function PoliciesPage() {
                                                                     window.open(waLink, '_blank');
                                                                 }}
                                                                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md active:scale-95 border border-slate-800"
+                                                                title="Enviar mensaje de bienvenida con enlace a carátula"
                                                             >
                                                                 <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> Bienvenida & Carátula
                                                             </button>
+
+                                                            {/* Botón: Pre-Renovación (Recordatorio 30 días) */}
+                                                            {isPreRenewalWindow && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                        const msg = getPreRenewalMessage(
+                                                                            clientName,
+                                                                            policy.insurance_lines?.name || 'Seguro',
+                                                                            policy.insurers?.alias || policy.insurers?.name || '',
+                                                                            policy.policy_number,
+                                                                            policy.end_date,
+                                                                            policy.premium_total
+                                                                        );
+                                                                        const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg);
+                                                                        window.open(waLink, '_blank');
+                                                                    }}
+                                                                    className="px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-amber-600 transition-all shadow-md active:scale-95"
+                                                                    title="Recordatorio de renovación (Faltan 30 días o menos)"
+                                                                >
+                                                                    <RefreshCw className="w-3.5 h-3.5" /> Recordatorio Renovación
+                                                                </button>
+                                                            )}
+
+                                                            {/* Botón: Póliza Renovada (Confirmación) */}
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                    const msg = getRenewalMessage(
+                                                                    const installments = policy.policy_installments || [];
+                                                                    const firstInst = installments.find((i: any) => i.installment_number === 1)?.total_amount || 0;
+                                                                    const subInst = installments.find((i: any) => i.installment_number === 2)?.total_amount || 0;
+                                                                    const limitDateFirst = installments.find((i: any) => i.installment_number === 1)?.due_date || policy.start_date;
+
+                                                                    const renewedMsg = getRenewedMessage(
                                                                         clientName,
-                                                                        policy.insurance_lines?.name || 'Seguro',
-                                                                        policy.insurers?.alias || policy.insurers?.name || '',
                                                                         policy.policy_number,
+                                                                        policy.insurers?.alias || policy.insurers?.name,
+                                                                        policy.insurance_lines?.name || 'Seguro',
+                                                                        policy.payment_method || 'Contado',
+                                                                        policy.start_date,
                                                                         policy.end_date,
-                                                                        policy.premium_total
+                                                                        policy.premium_total,
+                                                                        firstInst,
+                                                                        subInst,
+                                                                        limitDateFirst,
+                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                                                        policy.currency === 'USD' ? 'USD$' : '$'
                                                                     );
-                                                                    window.open(generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg), '_blank');
+
+                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', renewedMsg);
+                                                                    window.open(waLink, '_blank');
                                                                 }}
                                                                 className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                                                title="Entregar carátula de renovación"
                                                             >
-                                                                <Shield className="w-3.5 h-3.5 text-amber-500" /> Aviso Renovación
+                                                                <Shield className="w-3.5 h-3.5 text-blue-500" /> Póliza Renovada
                                                             </button>
+
                                                             {policy.notes && (
                                                                 <div className="flex-1 min-w-[200px] p-2 bg-amber-50/50 rounded-xl border border-amber-100/50 text-[10px] text-amber-800 italic leading-tight shadow-inner">
                                                                     <strong className="text-amber-900 uppercase">Nota:</strong> {policy.notes}
@@ -525,7 +575,7 @@ export default function PoliciesPage() {
 
             {/* Version Footer */}
             <div className="flex items-center justify-between pt-8 border-t border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 07:40 PM</span>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 08:30 PM</span>
                 <span className="text-[10px] font-bold text-slate-300">© 2026 Portal SaaS</span>
             </div>
         </div>
