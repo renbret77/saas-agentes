@@ -219,7 +219,15 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                 profession: formData.profession ? toTitleCase(formData.profession) : null,
             }
 
-            // Cleanup empty date strings
+            const phoneFields = ['mobile_phone', 'phone', 'work_phone', 'whatsapp']
+            const cleanedData: any = { ...formData }
+            
+            phoneFields.forEach(field => {
+                if (!cleanedData[field] || cleanedData[field] === '') {
+                    cleanedData[field] = null
+                }
+            })
+
             if (cleanedData.birth_date === "") cleanedData.birth_date = null
 
             // Remove ID and created_at/user_id from update payload if present/readonly
@@ -360,7 +368,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                             const isFisica = prev.type === 'fisica' || val.length === 13;
                                             const offset = isFisica ? 4 : 3;
                                             
-                                            if (val.length >= offset + 6 && !prev.birth_date) {
+                                            if (val.length >= offset + 6) {
                                                 const datePart = val.substring(offset, offset + 6);
                                                 if (/^\d{6}$/.test(datePart)) {
                                                     let year = parseInt(datePart.substring(0, 2));

@@ -118,6 +118,15 @@ export default function NewClientPage() {
         setLoading(true)
 
         try {
+            const phoneFields = ['mobile_phone', 'phone', 'work_phone', 'whatsapp']
+            const cleanedData: any = { ...formData }
+            
+            phoneFields.forEach(field => {
+                if (!cleanedData[field] || cleanedData[field] === '') {
+                    cleanedData[field] = null
+                }
+            })
+
             const { data: { user } } = await supabase.auth.getUser()
 
             if (!user) {
@@ -242,7 +251,7 @@ export default function NewClientPage() {
                                             const isFisica = prev.type === 'fisica' || val.length === 13;
                                             const offset = isFisica ? 4 : 3;
                                             
-                                            if (val.length >= offset + 6 && !prev.birth_date) {
+                                            if (val.length >= offset + 6) {
                                                 const datePart = val.substring(offset, offset + 6);
                                                 if (/^\d{6}$/.test(datePart)) {
                                                     let year = parseInt(datePart.substring(0, 2));

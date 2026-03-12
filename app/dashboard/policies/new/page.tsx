@@ -975,6 +975,7 @@ export default function NewPolicyPage() {
                                                     rfc: parsedClientRFC,
                                                     birth_date: parsedClientRFC ? extractBirthDateFromRFC(parsedClientRFC) : null,
                                                     phone: finalPhone,
+                                                    mobile_phone: finalPhone, // v27: Sync Mobile Phone
                                                     whatsapp: finalPhone, // v19.5: Sync WhatsApp
                                                     email: parsedClientEmail
                                                 }).select().single();
@@ -1010,6 +1011,7 @@ export default function NewPolicyPage() {
                                                         finalPhone = `+52${finalPhone.replace(/\D/g, '')}`;
                                                     }
                                                     updates.phone = finalPhone;
+                                                    updates.mobile_phone = finalPhone; // v27: Sync Mobile Phone
                                                     updates.whatsapp = finalPhone; // v19.5: Sync WhatsApp
                                                 }
                                                 if (parsedClientEmail) updates.email = parsedClientEmail;
