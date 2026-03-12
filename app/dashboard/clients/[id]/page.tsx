@@ -228,6 +228,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
             })
 
             if (cleanedData.birth_date === "") cleanedData.birth_date = null
+            delete cleanedData.telegram // v28: Excluido por falta de columna en DB
 
             // Remove ID and created_at/user_id from update payload if present/readonly
             const { id, created_at, user_id, ...restPayload } = cleanedData as any

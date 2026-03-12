@@ -147,9 +147,10 @@ export default function NewClientPage() {
                 }
             })
 
-            // Delete virtual fields not meant for SQL
+            // Delete virtual or missing fields not meant for SQL
             delete (cleanedData as any).mobile_phone;
             delete (cleanedData as any).work_phone;
+            delete (cleanedData as any).telegram; // v28: Excluido por falta de columna en DB
 
             // Cleanup empty date strings to null to avoid SQL errors
             if (cleanedData.birth_date === "") cleanedData.birth_date = null
