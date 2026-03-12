@@ -1,5 +1,32 @@
 export type PaymentMethod = 'Contado' | 'Semestral' | 'Trimestral' | 'Mensual' | 'Anual' | 'Domiciliado'
 
+// Definimos emojis usando String.fromCodePoint para garantizar compatibilidad universal de encoding
+const eStar = String.fromCodePoint(0x2B50)
+const eDiamond = String.fromCodePoint(0x1F48E)
+const eBuilding = String.fromCodePoint(0x1F3E2)
+const eShield = String.fromCodePoint(0x1F6E1, 0xFE0F)
+const ePin = String.fromCodePoint(0x1F4CD)
+const eCard = String.fromCodePoint(0x1F4B3)
+const eCalendar = String.fromCodePoint(0x1F4C5)
+const eDollar = String.fromCodePoint(0x1F4B5)
+const eReceipt = String.fromCodePoint(0x1F9FE)
+const eSync = String.fromCodePoint(0x1F504)
+const eCheck = String.fromCodePoint(0x2705)
+const eHourglass = String.fromCodePoint(0x23F3)
+const eMemo = String.fromCodePoint(0x1F4DC)
+const eSmile = String.fromCodePoint(0x1F60A)
+const eWave = String.fromCodePoint(0x1F44B)
+const eClock = String.fromCodePoint(0x1F552)
+const eAlert = String.fromCodePoint(0x1F6A8)
+const eZap = String.fromCodePoint(0x26A1)
+const eRobot = String.fromCodePoint(0x1F916)
+const eBell = String.fromCodePoint(0x1F514)
+const eRocket = String.fromCodePoint(0x1F680)
+const eSpark = String.fromCodePoint(0x2728)
+const eHandshake = String.fromCodePoint(0x1F91D)
+const ePushpin = String.fromCodePoint(0x1F4CC)
+const eNoEntry = String.fromCodePoint(0x1F6AB)
+
 // Helper para formatear fechas (v16 - Formato numérico ordenado)
 const formatDate = (dateString: string) => {
     const d = new Date(dateString)
@@ -10,9 +37,17 @@ const formatDate = (dateString: string) => {
 }
 
 // Helper para generar el link de WhatsApp
-export const generateWhatsAppLink = (phone: string, text: string) => {
+export const generateWhatsAppLink = (phone: any, text: string) => {
+    // Asegurar que phone no sea un string "undefined" literal
+    const phoneStr = String(phone || '').trim()
+    
     // Limpiar el teléfono para que solo tenga números
-    let cleanPhone = phone.replace(/\D/g, '')
+    let cleanPhone = phoneStr.replace(/\D/g, '')
+    
+    // Si no hay número válido o es el string literal "undefined"
+    if (!cleanPhone || phoneStr === 'undefined') {
+        return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
+    }
     
     // v28: Normalización para México (Si son 10 dígitos, agregar 52)
     if (cleanPhone.length === 10) {
@@ -20,7 +55,8 @@ export const generateWhatsAppLink = (phone: string, text: string) => {
     }
     
     const encodedText = encodeURIComponent(text)
-    return `https://wa.me/${cleanPhone}?text=${encodedText}`
+    // api.whatsapp.com/send es más robusto que wa.me para ciertos navegadores
+    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`
 }
 
 /**
@@ -57,26 +93,26 @@ export const getCollectionMessage = (
     const isImminent = daysUntilDue >= 0 && daysUntilDue <= 3
 
     // Configuración de Estética Premium según Contexto
-    let statusHeader = '💎 *PORTAL DE PROTECCIÓN PREMIUM*'
+    let statusHeader = `${eDiamond} *PORTAL DE PROTECCIÓN PREMIUM*`
     let mainAction = 'RECORDATORIO DE PAGO'
-    let alertIcon = '✨'
-    let contextMessage = `Hola *${clientName}*, nos ponemos en contacto contigo para saludarte y recordarte que tu protección requiere atención. 🤝`
+    let alertIcon = eSpark
+    let contextMessage = `Hola *${clientName}*, nos ponemos en contacto contigo para saludarte y recordarte que tu protección requiere atención. ${eHandshake}`
     let urgencyNote = ''
 
     if (isOverdue) {
-        alertIcon = '🚨'
+        alertIcon = eAlert
         mainAction = 'PÓLIZA EN RIESGO DE CANCELACIÓN'
         contextMessage = `*¡ATENCIÓN URGENTE!* *${clientName}*, el periodo de gracia para tu recibo ha expirado.`
-        urgencyNote = `\n\n⚠️ *ESTADO:* EXCEDIDO\n❌ La compañía podría rechazar cualquier siniestro a partir de este momento.`
+        urgencyNote = `\n\n${eAlert} *ESTADO:* EXCEDIDO\n${eNoEntry} La compañía podría rechazar cualquier siniestro a partir de este momento.`
     } else if (isGracePeriod) {
-        alertIcon = '🕒'
+        alertIcon = eClock
         mainAction = 'EN PERIODO DE GRACIA'
-        contextMessage = `Hola *${clientName}*, tu recibo venció el *${formatDate(targetDate)}*, pero aún te encuentras dentro del *Periodo de Gracia* institucional. 🛡️`
-        urgencyNote = `\n\n📌 *Días de Gracia:* ${graceDays} días naturales.\n⏳ *Fecha Límite:* *${formatDate(limitDate.toISOString())}*`
+        contextMessage = `Hola *${clientName}*, tu recibo venció el *${formatDate(targetDate)}*, pero aún te encuentras dentro del *Periodo de Gracia* institucional. ${eShield}`
+        urgencyNote = `\n\n${ePushpin} *Días de Gracia:* ${graceDays} días naturales.\n${eHourglass} *Fecha Límite:* *${formatDate(limitDate.toISOString())}*`
     } else if (isImminent) {
-        alertIcon = '🔔'
+        alertIcon = eBell
         mainAction = 'PRÓXIMO VENCIMIENTO'
-        contextMessage = `Hola *${clientName}*, te escribimos para recordarte que tu pago está próximo a vencer. ¡Mantén tu tranquilidad siempre activa! 🚀`
+        contextMessage = `Hola *${clientName}*, te escribimos para recordarte que tu pago está próximo a vencer. ¡Mantén tu tranquilidad siempre activa! ${eRocket}`
     }
 
     const message = [
@@ -86,17 +122,17 @@ export const getCollectionMessage = (
         '',
         `━━━━━━━━━━━━━━━━━━━━`,
         `👤 *Cliente:* ${clientName}`,
-        `🏢 *Aseguradora:* ${insurerName}`,
-        `🛡️ *Plan:* ${policyType}${subBranch ? ` (${subBranch})` : ''}`,
+        `${eBuilding} *Aseguradora:* ${insurerName}`,
+        `${eShield} *Plan:* ${policyType}${subBranch ? ` (${subBranch})` : ''}`,
         `🔢 *Póliza:* *${policyNumber}*`,
-        `🧾 *Recibo:* ${installmentNumber} de ${totalInstallments}`,
+        `${eReceipt} *Recibo:* ${installmentNumber} de ${totalInstallments}`,
         `━━━━━━━━━━━━━━━━━━━━`,
         '',
-        `📅 *Vence el:* *${formatDate(targetDate)}*`,
-        `💰 *MONTO A PAGAR: ${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
+        `${eCalendar} *Vencimiento:* *${formatDate(targetDate)}*`,
+        `${eDollar} *MONTO A PAGAR: ${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
         urgencyNote,
         '',
-        `¿Deseas que te enviemos la línea de captura o el link de pago express? 😊`,
+        `¿Deseas que te enviemos la línea de captura o el link de pago express? ${eSmile}`,
         '',
         `*${statusHeader}*`
     ].join('\n')
@@ -116,21 +152,21 @@ export const getRenewalMessage = (
     estimatedPremium?: number,
     currencySymbol: string = '$',
 ) => {
-    return `🕒 *AVISO DE RENOVACIÓN* 🕒
-
-Hola *${clientName}*, te saludo con gusto. 👋
-
+    return `${eClock} *AVISO DE RENOVACIÓN* ${eClock}
+ 
+Hola *${clientName}*, te saludo con gusto. ${eWave}
+ 
 Te informo que tu póliza está próxima a vencer y es momento de asegurar la continuidad de tu protección:
-
-🏢 *Aseguradora:* ${insurerName}
-🛡️ *Ramo:* ${policyType}
+ 
+${eBuilding} *Aseguradora:* ${insurerName}
+${eShield} *Ramo:* ${policyType}
 🔢 *Póliza:* *${policyNumber}*
-📅 *Vence el:* *${formatDate(endDate)}*
-
-${estimatedPremium ? `💰 *Prima estimada: ${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*\n` : ''}
+${eCalendar} *Vencimiento:* *${formatDate(endDate)}*
+ 
+${estimatedPremium ? `${eDollar} *Prima estimada: ${currencySymbol}${estimatedPremium.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*\n` : ''}
 ¿Gustas que procedamos con la renovación automática o prefieres que revisemos otras opciones de costo/cobertura? 
-
-Quedo atento para apoyarte y que sigas siempre protegido. 😊`
+ 
+Quedo atento para apoyarte y que sigas siempre protegido. ${eSmile}`
 }
 
 /**
@@ -152,48 +188,32 @@ export const getWelcomeMessage = (
     currencySymbol: string = '$',
     coverage: string = 'Amplia / Según Carátula'
 ) => {
-    // Definimos emojis literales para evitar problemas de encoding en el navegador
-    const star = '⭐'
-    const diamond = '💎'
-    const building = '🏢'
-    const shield = '🛡️'
-    const pin = '📍'
-    const card = '💳'
-    const calendar = '📅'
-    const dollar = '💵'
-    const receipt = '🧾'
-    const sync = '🔄'
-    const check = '✅'
-    const hourglass = '⏳'
-    const memo = '📜'
-    const smile = '😊'
-
     return [
-        `${star} *¡BIENVENIDO A TU PROTECCIÓN PREMIUM!* ${star}`,
+        `${eStar} *¡BIENVENIDO A TU PROTECCIÓN PREMIUM!* ${eStar}`,
         '',
         `Hola *${clientName}*, ¡gracias por tu preferencia! Es un gusto saludarte y confirmarte el alta exitosa de tu protección.`,
         '',
-        `${diamond} *DETALLES DE TU PÓLIZA*`,
+        `${eDiamond} *DETALLES DE TU PÓLIZA*`,
         `━━━━━━━━━━━━━━━━━━━━`,
-        `${building} *Aseguradora:* ${insurerName}`,
+        `${eBuilding} *Aseguradora:* ${insurerName}`,
         `🔢 *Póliza:* *${policyNumber}*`,
-        `${shield} *Ramo:* ${policyType}`,
-        `${pin} *Cobertura:* ${coverage}`,
-        `${card} *Forma de Pago:* ${paymentMethod}`,
-        `${calendar} *Vigencia:* del *${formatDate(startDate)}* al *${formatDate(endDate)}*`,
+        `${eShield} *Ramo:* ${policyType}`,
+        `${ePin} *Cobertura:* ${coverage}`,
+        `${eCard} *Forma de Pago:* ${paymentMethod}`,
+        `${eCalendar} *Vigencia:* del *${formatDate(startDate)}* al *${formatDate(endDate)}*`,
         `━━━━━━━━━━━━━━━━━━━━`,
         '',
-        `💰 *PRIMAS Y RECIBOS*`,
-        `${dollar} *Prima Total:* *${currencySymbol}${premiumTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
-        `${receipt} *1er Recibo:* ${currencySymbol}${firstInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
-        subsequentInstallment > 0 ? `${sync} *Subsecuentes:* ${currencySymbol}${subsequentInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : `${check} *Pago Único / Contado*`,
-        `${hourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
+        `${eDollar} *PRIMAS Y RECIBOS*`,
+        `${eDollar} *Prima Total:* *${currencySymbol}${premiumTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
+        `${eReceipt} *1er Recibo:* ${currencySymbol}${firstInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+        subsequentInstallment > 0 ? `${eSync} *Subsecuentes:* ${currencySymbol}${subsequentInstallment.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : `${eCheck} *Pago Único / Contado*`,
+        `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
-        `${memo} *TU DOCUMENTACIÓN DIGITAL*`,
+        `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
         `Puedes descargar tu póliza completa aquí:`,
         policyLink,
         '',
-        `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${smile}`,
+        `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${eSmile}`,
         '',
         `*PORTAL DE PROTECCIÓN PREMIUM*`
     ].join('\n')
@@ -212,30 +232,30 @@ export const getPaymentCalendarMessage = (
         `🔹 *Recibo ${inst.installment_number}:* ${formatDate(inst.due_date)} - *${currencySymbol}${parseNum(inst.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`
     ).join('\n')
 
-    return `📅 *CALENDARIO DE PAGOS* 📅
-
+    return `${eCalendar} *CALENDARIO DE PAGOS* ${eCalendar}
+ 
 Hola *${clientName}*, te comparto el cronograma de pagos de tu póliza *${policyNumber}* para que lo tengas siempre a la mano:
-
+ 
 ${table}
-
-⚠️ *Nota:* Favor de realizar sus pagos antes de la fecha límite para evitar recargos o cancelación de cobertura. 🚫
-
-¿Gustas que te apoyemos con alguna línea de captura? 😊`
+ 
+${eAlert} *Nota:* Favor de realizar sus pagos antes de la fecha límite para evitar recargos o cancelación de cobertura. ${eNoEntry}
+ 
+¿Gustas que te apoyemos con alguna línea de captura? ${eSmile}`
 }
 
 /**
  * Genera tips de seguridad para WhatsApp (v24)
  */
 export const getSecurityTipsMessage = (clientName: string) => {
-    return `🛡️ *TIPS PARA TU SEGURIDAD* 🛡️
-
+    return `${eShield} *TIPS PARA TU SEGURIDAD* ${eShield}
+ 
 Hola *${clientName}*, queremos que siempre estés protegido. Aquí unos consejos clave:
-
-🚗 *Auto:* Revisa presión de llantas y niveles antes de salir.
-🏠 *Hogar:* No compartas en redes sociales cuando salgas de vacaciones.
-📄 *Póliza:* Ten siempre a la mano tu número de póliza y teléfonos de asistencia.
-
-¡Tu tranquilidad es nuestra prioridad! ✨`
+ 
+${eRocket} *Auto:* Revisa presión de llantas y niveles antes de salir.
+${eBuilding} *Hogar:* No compartas en redes sociales cuando salgas de vacaciones.
+${eMemo} *Póliza:* Ten siempre a la mano tu número de póliza y teléfonos de asistencia.
+ 
+¡Tu tranquilidad es nuestra prioridad! ${eSpark}`
 }
 
 const parseNum = (val: any) => {
