@@ -174,10 +174,18 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
     }
 
     const handlePhoneChange = (value: string | undefined, name: string) => {
-        setFormData({
-            ...formData,
-            [name]: value
-        })
+        setFormData(prev => {
+            const updates: any = { [name]: value };
+            
+            // v27: Sync Mobile Phone with WhatsApp
+            if (name === 'mobile_phone') {
+                updates.whatsapp = value;
+            } else if (name === 'whatsapp') {
+                updates.mobile_phone = value;
+            }
+            
+            return { ...prev, ...updates };
+        });
     }
 
     // Helper for Title Case
@@ -346,16 +354,27 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                         const val = e.target.value.toUpperCase();
                                         setFormData(prev => {
                                             const updates: any = { rfc: val };
-                                            // Extraer fecha de nacimiento si es RFC de persona física (13 caracteres y no tiene fecha aún)
-                                            // v19.5: RFC Física empieza en pos 4 (ABCDYYMMDD...)
-                                            if (val.length >= 10 && !prev.birth_date && val.length === 13) {
-                                                const datePart = val.substring(4, 10);
+                                            // v27: Extraer fecha de nacimiento si es RFC (leniente: a partir de 10 chars)
+                                            // RFC Física: ABCDYYMMDD... (chars 4-9)
+                                            // RFC Moral: ABCYYMMDD... (chars 3-8)
+                                            const isFisica = prev.type === 'fisica' || val.length === 13;
+                                            const offset = isFisica ? 4 : 3;
+                                            
+                                            if (val.length >= offset + 6 && !prev.birth_date) {
+                                                const datePart = val.substring(offset, offset + 6);
                                                 if (/^\d{6}$/.test(datePart)) {
                                                     let year = parseInt(datePart.substring(0, 2));
                                                     const month = datePart.substring(2, 4);
                                                     const day = datePart.substring(4, 6);
-                                                    year += (year > 30 ? 1900 : 2000);
-                                                    updates.birth_date = `${year}-${month}-${day}`;
+                                                    
+                                                    // Validar mes y día básicos
+                                                    const m = parseInt(month);
+                                                    const d = parseInt(day);
+                                                    
+                                                    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                                                        year += (year > new Date().getFullYear() % 100 ? 1900 : 2000);
+                                                        updates.birth_date = `${year}-${month}-${day}`;
+                                                    }
                                                 }
                                             }
                                             return { ...prev, ...updates };

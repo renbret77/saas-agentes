@@ -79,11 +79,16 @@ export default function EditPolicyPage({ params }: { params: any }) {
         } catch { return 0; }
     };
 
-    const formatInputCurrency = (val: any) => {
+    const formatInputCurrency = (val: string | number) => {
         try {
-            if (!val) return '';
-            return String(val); // Hard bypass of complex regex to prevent crash
-        } catch { return ''; }
+            if (val === '' || val === null || val === undefined) return '';
+            const clean = String(val).replace(/[^0-9.-]/g, '');
+            if (!clean) return '';
+            const parts = clean.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            if (parts.length > 2) parts.pop();
+            return parts.join('.');
+        } catch { return String(val || ''); }
     };
 
     const formatCurrency = (val: any) => {
@@ -127,21 +132,21 @@ export default function EditPolicyPage({ params }: { params: any }) {
                 const p: any = policy;
                 setFormData({
                     ...p,
-                    premium_net: p.premium_net?.toString() || '',
-                    policy_fee: p.policy_fee?.toString() || '0',
+                    premium_net: p.premium_net ? formatInputCurrency(p.premium_net.toString()) : '',
+                    policy_fee: p.policy_fee ? formatInputCurrency(p.policy_fee.toString()) : '0',
                     surcharge_percentage: p.surcharge_percentage?.toString() || '0',
-                    surcharge_amount: p.surcharge_amount?.toString() || '0',
+                    surcharge_amount: p.surcharge_amount ? formatInputCurrency(p.surcharge_amount.toString()) : '0',
                     discount_percentage: p.discount_percentage?.toString() || '0',
-                    discount_amount: p.discount_amount?.toString() || '0',
-                    extra_premium: p.extra_premium?.toString() || '0',
+                    discount_amount: p.discount_amount ? formatInputCurrency(p.discount_amount.toString()) : '0',
+                    extra_premium: p.extra_premium ? formatInputCurrency(p.extra_premium.toString()) : '0',
                     tax_percentage: p.tax_percentage?.toString() || '16',
-                    vat_amount: p.vat_amount?.toString() || '0',
+                    vat_amount: p.vat_amount ? formatInputCurrency(p.vat_amount.toString()) : '0',
                     commission_percentage: p.commission_percentage?.toString() || '0',
-                    commission_amount: p.commission_amount?.toString() || '0',
+                    commission_amount: p.commission_amount ? formatInputCurrency(p.commission_amount.toString()) : '0',
                     fees_percentage: p.fees_percentage?.toString() || '0',
-                    fees_amount: p.fees_amount?.toString() || '0',
-                    adjustment_amount: p.adjustment_amount?.toString() || '0',
-                    premium_subtotal: p.premium_subtotal?.toString() || '0',
+                    fees_amount: p.fees_amount ? formatInputCurrency(p.fees_amount.toString()) : '0',
+                    adjustment_amount: p.adjustment_amount ? formatInputCurrency(p.adjustment_amount.toString()) : '0',
+                    premium_subtotal: p.premium_subtotal ? formatInputCurrency(p.premium_subtotal.toString()) : '0',
                     total_installments: p.total_installments?.toString() || '1',
                     current_installment: p.current_installment?.toString() || '1'
                 })
@@ -320,7 +325,8 @@ export default function EditPolicyPage({ params }: { params: any }) {
 
             setFormData((prev: any) => {
                 const nextVat = formatInputCurrency(formattedVat);
-                // v25 Fix: Asegurar que 'tax' también se actualice para el payload final
+                const formattedTotal = formatInputCurrency(total.toFixed(2));
+                
                 if (prev.premium_total === formattedTotal && prev.vat_amount === nextVat && prev.tax === formattedVat) return prev;
 
                 return {
@@ -752,7 +758,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.03-03-2026 02:00 AM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 06:15 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -801,7 +807,17 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
                                 insurer?.name || 'Aseguradora',
-                                documents[0]?.file_url || 'Link no disponible'
+                                lines.find(l => l.id === formData.branch_id)?.name || 'Seguro',
+                                formData.payment_method,
+                                formData.start_date,
+                                formData.end_date,
+                                parseNum(formData.premium_total),
+                                installments[0] ? parseNum(installments[0].total_amount) : 0,
+                                installments[1] ? parseNum(installments[1].total_amount) : 0,
+                                formData.start_date, // Límite 1er pago
+                                documents[0]?.file_url || 'Link no disponible',
+                                formData.currency === 'USD' ? 'USD$' : '$',
+                                formData.description || 'Amplia'
                             )
                             window.open(generateWhatsAppLink(client?.phone || '', msg), '_blank')
                         }}

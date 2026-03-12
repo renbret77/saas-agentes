@@ -1,0 +1,50 @@
+﻿c74bc9e HEAD@{0} reset: moving to origin/main
+783b2d7 HEAD@{1} commit: feat: phase 27 - safety delete, unicode emojis, and pdf persistence
+5cb619d HEAD@{2} commit: feat: premium welcome message with financial breakdown and better formatting
+025c698 HEAD@{3} commit: fix: align getCollectionMessage signature in all callers
+9c43644 HEAD@{4} commit: fix: resolve lint errors and add grace periods to insurer modal
+e09ee4e HEAD@{5} commit: fix: restore getCollectionMessage name to fix Vercel build
+c5c6a35 HEAD@{6} commit: feat: premium collection engine v26
+735ed41 HEAD@{7} commit: feat: complete phase 25 - policy collection and document refinement
+2284cd4 HEAD@{8} commit: fix: resolve UUIDs in messages and refine emoji encoding - BUILD 10/MAR 21:45
+5023e58 HEAD@{9} commit: fix: restore critical tasks logic, fix sidebar white band - BUILD 10/MAR 21:30
+6c93117 HEAD@{10} commit: fix: dashboard visibility, sidebar gap, and whatsapp message preview - BUILD 10/MAR 21:20
+04d157c HEAD@{11} commit: feat: dashboard UX, safe delete, export all, and client fields sync - BUILD 10/MAR 21:05
+27aa675 HEAD@{12} commit: Fix: Database sync (whatsapp), RFC birth extraction, SAT regimes, and success screen UX
+df3cd00 HEAD@{13} commit: Fix: Improved Ramo matching (Autos), Step validation, and UX persistence in NewPolicyPage
+cddcb5b HEAD@{14} commit: Fix: Added strict validation for required fields and IA Match visual indicators in NewPolicyPage
+5fece21 HEAD@{15} commit: Fix: Syntax error (let redeclaration), missing imports, and UUID safety in NewPolicyPage
+aca68c9 HEAD@{16} commit: Fase 19: Client Hub & Communication 360 - Success flow, WhatsApp setup and RFC intelligence
+73938fc HEAD@{17} commit: Fase 18: Branch Intelligence & UUID safety - Fixes DB error and adds Ramo detection
+946f10d HEAD@{18} commit: Fase 17: Client Intelligence & Sync UX - Fuzzy matching, suggestions and smart contact sync
+7c49815 HEAD@{19} commit: Fase 16: Advanced Extraction v4, DB expansion and Chubb rule implementation
+36cdbdc HEAD@{20} commit: Upgrade to Gemini 2.5 Flash and Airy Executive persona
+4bfcd8d HEAD@{21} commit: Fix: Revert to stable gemini-1.5-flash to resolve 404/deprecation errors
+4fee807 HEAD@{22} commit: Fix: Upgrade Gemini model to 2.0 Flash to resolve 404 error
+be413be HEAD@{23} commit: Fix: AI Credit spent requires explicit user_id and frontend auth token
+47d5101 HEAD@{24} commit: Switch policy parser to Gemini 1.5 Flash for better OCR accuracy
+db22264 HEAD@{25} commit: Fix: async/await build error in NewPolicyPage
+d120801 HEAD@{26} commit: Fix: Switch policy parser to OpenAI & implement smart agent matching
+98ef94d HEAD@{27} commit: feat: UX refinements for CriticalTasksWidget, multi-channel support, and notification tracking
+e89d689 HEAD@{28} commit: feat: SICAS Killer - Critical Tasks Widget with WhatsApp automation and build fixes
+a4ddcff HEAD@{29} commit: fix: move client initializations inside request handlers to prevent build-time errors
+8082796 HEAD@{30} commit: feat: Capataz 2.0 AI Brain, QR Pairing UI, and media processing
+b3cc61f HEAD@{31} commit: feat: premium dashboard upgrade, Capataz Hub, and massive image varieties
+4cfb744 HEAD@{32} commit: feat(ai-quotes): create database migrations for the ai quoting engine (sessions, items, and storage)
+c561d64 HEAD@{33} commit: fix(build): resolve Vercel static build crashes related to Stripe and Supabase webhook instantiations
+9bf565e HEAD@{34} commit: fix(sidebar): wire logout button and implement dynamic user profile name
+66349f5 HEAD@{35} commit: fix(security): resolve data leak with corrected relational RLS policy for clients and policies
+a82961a HEAD@{36} commit: fix(security): resolve data isolation RLS leak and add dynamic build banner
+8d622d1 HEAD@{37} commit: fix(billing): correct typescript errors in supabase fetches
+fa0ee86 HEAD@{38} commit: feat(stripe): add checkout session api, webhook listener and wire frontend buttons
+fc86715 HEAD@{39} commit: feat(billing): overhaul billing page to act as saas storefront for upgrades and addons
+79bbe29 HEAD@{40} commit: feat(auth): add public free agency registration and exempt prueba% accounts from device limits
+9d736f3 HEAD@{41} commit: fix(auth): convert superadmin layout to client component for reliable session checks
+6d89184 HEAD@{42} commit: fix(ui): correct red text css wrapping in upsell modal and add quotes feature
+6c2ae07 HEAD@{43} commit: feat: implement Freemium Pro Upsell Modal in Sidebar for Free tier users
+a53d120 HEAD@{44} commit: fix: exempt superadmin from device fingerprinting limits on login
+78748e1 HEAD@{45} commit: feat: implement Device Fingerprinting security layer for Free tier
+30274eb HEAD@{46} commit: feat: implement Super Admin Module and Multi-tenancy Agencies
+174725b HEAD@{47} commit: feat: implement Assistant Roles and Mi Equipo UI
+034ef35 HEAD@{48} reset: moving to origin/main
+034ef35 HEAD@{49} clone: from https://github.com/renbret77/portal.git

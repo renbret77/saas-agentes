@@ -115,6 +115,31 @@ export default function NewPolicyPage() {
         } catch { return "0.00"; }
     };
 
+    const extractBirthDateFromRFC = (rfc: string, type: 'fisica' | 'moral' = 'fisica') => {
+        if (!rfc) return null;
+        const val = rfc.toUpperCase();
+        const isFisica = type === 'fisica' || val.length === 13;
+        const offset = isFisica ? 4 : 3;
+        
+        if (val.length >= offset + 6) {
+            const datePart = val.substring(offset, offset + 6);
+            if (/^\d{6}$/.test(datePart)) {
+                let year = parseInt(datePart.substring(0, 2));
+                const month = datePart.substring(2, 4);
+                const day = datePart.substring(4, 6);
+                
+                const m = parseInt(month);
+                const d = parseInt(day);
+                
+                if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                    year += (year > new Date().getFullYear() % 100 ? 1900 : 2000);
+                    return `${year}-${month}-${day}`;
+                }
+            }
+        }
+        return null;
+    };
+
     const [installments, setInstallments] = useState<any[]>([])
 
     useEffect(() => {
@@ -325,14 +350,16 @@ export default function NewPolicyPage() {
                 end_date: data.end_date || prev.end_date,
                 currency: data.currency || prev.currency,
                 payment_method: data.payment_method || prev.payment_method,
-                premium_net: data.premium_net ? data.premium_net.toString() : prev.premium_net,
-                policy_fee: data.policy_fee ? data.policy_fee.toString() : prev.policy_fee,
-                surcharge_amount: (parseNum(data.surcharge_amount) >= 0 && data.surcharge_amount) ? data.surcharge_amount.toString() : prev.surcharge_amount,
+                premium_net: data.premium_net ? formatInputCurrency(data.premium_net.toString()) : prev.premium_net,
+                policy_fee: data.policy_fee ? formatInputCurrency(data.policy_fee.toString()) : prev.policy_fee,
+                surcharge_amount: (parseNum(data.surcharge_amount) >= 0 && data.surcharge_amount) 
+                    ? formatInputCurrency(data.surcharge_amount.toString()) 
+                    : prev.surcharge_amount,
                 discount_amount: (parseNum(data.surcharge_amount) < 0) 
-                    ? Math.abs(parseNum(data.surcharge_amount)).toString() 
-                    : (data.discount_amount ? data.discount_amount.toString() : prev.discount_amount),
-                vat_amount: data.vat_amount ? data.vat_amount.toString() : prev.vat_amount,
-                premium_total: data.premium_total ? data.premium_total.toString() : prev.premium_total,
+                    ? formatInputCurrency(Math.abs(parseNum(data.surcharge_amount)).toString()) 
+                    : (data.discount_amount ? formatInputCurrency(data.discount_amount.toString()) : prev.discount_amount),
+                vat_amount: data.vat_amount ? formatInputCurrency(data.vat_amount.toString()) : prev.vat_amount,
+                premium_total: data.premium_total ? formatInputCurrency(data.premium_total.toString()) : prev.premium_total,
                 sub_branch: data.sub_ramo || prev.sub_branch,
                 description: data.asset_description || prev.description,
                 client_id: updatedClientId,
@@ -452,12 +479,10 @@ export default function NewPolicyPage() {
             const formattedVat = calculatedVat.toFixed(2);
 
             const total = baseForVat + calculatedVat;
-            const formattedTotal = total.toFixed(2);
+            const formattedTotal = formatInputCurrency(total.toFixed(2));
+            const nextVat = formatInputCurrency(formattedVat);
 
             setFormData(prev => {
-                // Solo actualizar si hay cambios reales para evitar loops
-                const nextVat = formatInputCurrency(formattedVat);
-                // v25 Fix: Asegurar que 'tax' también se actualice para el payload final
                 if (prev.premium_total === formattedTotal && prev.vat_amount === nextVat && prev.tax === formattedVat) return prev;
 
                 return {
@@ -736,7 +761,7 @@ export default function NewPolicyPage() {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.10-03-2026 07:30 PM</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 06:15 PM</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Nueva Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 </div>
@@ -948,6 +973,7 @@ export default function NewPolicyPage() {
                                                     last_name: rest.join(' '),
                                                     status: 'active',
                                                     rfc: parsedClientRFC,
+                                                    birth_date: parsedClientRFC ? extractBirthDateFromRFC(parsedClientRFC) : null,
                                                     phone: finalPhone,
                                                     whatsapp: finalPhone, // v19.5: Sync WhatsApp
                                                     email: parsedClientEmail
@@ -973,7 +999,10 @@ export default function NewPolicyPage() {
                                             className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center justify-end gap-1 ml-auto"
                                             onClick={async () => {
                                                 const updates: any = {};
-                                                if (parsedClientRFC) updates.rfc = parsedClientRFC;
+                                                if (parsedClientRFC) {
+                                                    updates.rfc = parsedClientRFC;
+                                                    updates.birth_date = extractBirthDateFromRFC(parsedClientRFC);
+                                                }
                                                 if (parsedClientPhone) {
                                                     // v24: Normalizar WhatsApp (+52)
                                                     let finalPhone = parsedClientPhone;

@@ -1,0 +1,119 @@
+﻿
+> portal@0.1.0 build
+> next build
+
+node.exe : ΓÜá 
+`eslint` configuration 
+in next.config.ts is 
+no longer supported. 
+See more info here: htt
+ps://nextjs.org/docs/ap
+p/api-reference/cli/nex
+t#next-lint-options
+En línea: 1 Carácter: 1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : 
+NotSpecified:     (ΓÜá 
+`eslint` co...x    
+t-lint-options:Strin   
+ g) [], RemoteExcepti  
+  on
+    + 
+FullyQualifiedErro    
+rId : NativeCommandE   
+ rror
+ 
+ΓÜá Invalid 
+next.config.ts options 
+detected: 
+ΓÜá     Unrecognized 
+key(s) in object: 
+'eslint'
+ΓÜá See more info 
+here: https://nextjs.or
+g/docs/messages/invalid
+-next-config
+Γû▓ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build 
+failed with 1 errors:
+./lib/stripe.ts:2:1
+Module not found: 
+Can't resolve 'stripe'
+[0m [90m 1 |[39m 
+[90m// 
+lib/stripe.ts[39m
+[31m[1m>[22m[39m[9
+0m 2 |[39m 
+[36mimport[39m 
+[33mStripe[39m 
+[36mfrom[39m 
+[32m'stripe'[39m
+ [90m   |[39m [31m[
+1m^[22m[39m[31m[1m^
+[22m[39m[31m[1m^[2
+2m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39
+m[31m[1m^[22m[39m[
+31m[1m^[22m[39m[31m
+[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^
+[22m[39m[31m[1m^[22
+m[39m[31m[1m^[22m[
+39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[3
+1m[1m^[22m[39m[31m
+[1m^[22m[39m[31m[1m
+^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[3
+9m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[
+1m^[22m[39m[31m[1m^
+[22m[39m[31m[1m^[2
+2m[39m[31m[1m^[22m
+[39m
+ [90m 3 |[39m
+ [90m 4 |[39m 
+[90m// We add a 
+fallback dummy key 
+'sk_test_...' so the 
+Vercel build doesn't 
+crash[39m
+ [90m 5 |[39m 
+[90m// if you haven't 
+added the real 
+environment variable 
+yet.[39m[0m
+
+
+
+Import trace:
+  App Route:
+    ./lib/stripe.ts
+    ./app/api/checkout/
+route.ts
+
+https://nextjs.org/docs
+/messages/module-not-fo
+und
+
+
+    at <unknown> 
+(./lib/stripe.ts:2:1)
+    at <unknown> (https
+://nextjs.org/docs/mess
+ages/module-not-found)
