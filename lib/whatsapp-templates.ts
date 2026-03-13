@@ -316,21 +316,44 @@ export const getPaymentCalendarMessage = (
     clientName: string,
     policyNumber: string,
     installments: any[],
-    currencySymbol: string = '$'
+    currencySymbol: string = '$',
+    policyEndDate?: string // v36+
 ) => {
-    const table = installments.map(inst =>
-        `🔹 *Recibo ${inst.installment_number}:* ${formatDate(inst.due_date)} - *${currencySymbol}${parseNum(inst.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`
-    ).join('\n')
+    const table = installments.map((inst, index) => {
+        const startDate = new Date(inst.due_date)
+        
+        // Calcular Límite de Pago (30 días de gracia)
+        const limitDate = new Date(startDate)
+        limitDate.setDate(limitDate.getDate() + 30)
 
-    return `${eCalendar} *CALENDARIO DE PAGOS* ${eCalendar}
- 
-Hola *${clientName}*, te comparto el cronograma de pagos de tu póliza *${policyNumber}* para que lo tengas siempre a la mano:
- 
-${table}
- 
-${eAlert} *Nota:* Favor de realizar sus pagos antes de la fecha límite para evitar recargos o cancelación de cobertura. ${eNoEntry}
- 
-¿Gustas que te apoyemos con alguna línea de captura? ${eSmile}`
+        // Calcular Periodo (Hasta el siguiente recibo o fin de póliza)
+        let periodEnd = ""
+        if (index < installments.length - 1) {
+            periodEnd = formatDate(installments[index + 1].due_date)
+        } else if (policyEndDate) {
+            periodEnd = formatDate(policyEndDate)
+        }
+
+        const periodText = `del ${formatDate(inst.due_date)} al ${periodEnd}`
+        const amountText = `${currencySymbol}${parseNum(inst.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+        const limitText = `${formatDate(limitDate.toISOString())}`
+
+        return `🔹 *Recibo ${inst.installment_number}* | Periodo ${periodText} | Total *${amountText}* | Límite de pago *${limitText}*`
+    }).join('\n')
+
+    return [
+        `${eCalendar} *CALENDARIO DE PAGOS* ${eCalendar}`,
+        '',
+        `Hola *${clientName}*, te comparto el cronograma detallado de tu póliza *${policyNumber}*:`,
+        '',
+        `━━━━━━━━━━━━━━━━━━━━`,
+        table,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        '',
+        `${eAlert} *NOTA:* Durante el periodo de gracia su póliza permanece vigente. Sin embargo, en caso de siniestro, la compañía podría solicitar el pago inmediato del recibo para otorgar la atención o realizar el trámite vía reembolso.`,
+        '',
+        `¿Gustas que te apoyemos con alguna línea de captura o link de pago express? ${eSmile}`
+    ].join('\n')
 }
 
 /**

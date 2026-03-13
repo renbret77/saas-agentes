@@ -615,7 +615,8 @@ export default function PoliciesPage() {
                                                                                 clientName,
                                                                                 policy.policy_number,
                                                                                 installments,
-                                                                                policy.currency === 'USD' ? 'USD$' : '$'
+                                                                                policy.currency === 'USD' ? 'USD$' : '$',
+                                                                                policy.end_date
                                                                             ),
                                                                             '',
                                                                             `*TU DOCUMENTO DIGITAL:*`,
