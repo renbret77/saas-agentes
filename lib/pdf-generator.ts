@@ -14,7 +14,9 @@ export const generatePolicyCalendarPDF = (
     insurerName: string,
     installments: PaymentInstallment[],
     currency: string = 'MXN',
-    policyEndDate?: string // v34+: Para calcular el último periodo
+    policyEndDate?: string, // v34+: Para calcular el último periodo
+    branchName?: string,    // v36+: Detalle del Producto
+    description?: string    // v36+: Descripción del Seguro
 ) => {
     const doc = new jsPDF()
     const primaryColor = [15, 23, 42] // Slate-900
@@ -43,6 +45,16 @@ export const generatePolicyCalendarPDF = (
     doc.text(`Cliente: ${clientName}`, 20, 65)
     doc.text(`Póliza: ${policyNumber}`, 20, 71)
     doc.text(`Aseguradora: ${insurerName}`, 20, 77)
+    
+    let currentY = 83
+    if (branchName) {
+        doc.text(`Producto: ${branchName}`, 20, currentY)
+        currentY += 6
+    }
+    if (description) {
+        doc.text(`Descripción: ${description}`, 20, currentY)
+        currentY += 6
+    }
 
     // Installments Table
     const tableRows = installments.map((inst, index) => {
@@ -72,7 +84,7 @@ export const generatePolicyCalendarPDF = (
     })
 
     autoTable(doc, {
-        startY: 85,
+        startY: currentY + 5,
         head: [['Recibo', 'Periodo de Cobertura', 'Monto Total', 'Límite de Pago', 'Estado']],
         body: tableRows,
         styles: { font: 'helvetica', fontSize: 8 },

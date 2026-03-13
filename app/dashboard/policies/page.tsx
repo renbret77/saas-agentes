@@ -574,7 +574,9 @@ export default function PoliciesPage() {
                                                                             policy.insurers?.alias || policy.insurers?.name,
                                                                             installments,
                                                                             policy.currency || 'MXN',
-                                                                            policy.end_date
+                                                                            policy.end_date,
+                                                                            policy.insurance_lines?.name,
+                                                                            policy.sub_branch
                                                                         );
 
                                                                         // 2. Subir a Supabase Storage
