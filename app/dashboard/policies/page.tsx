@@ -525,13 +525,14 @@ export default function PoliciesPage() {
                                                                         const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
                                                                         const installments = policy.policy_installments || [];
                                                                         
-                                                                        // 1. Generar PDF Blob
+                                                                        // 1. Generar PDF Blob (v35: Pasar end_date para los periodos)
                                                                         const pdfBlob = generatePolicyCalendarPDF(
                                                                             clientName,
                                                                             policy.policy_number,
                                                                             policy.insurers?.alias || policy.insurers?.name,
                                                                             installments,
-                                                                            policy.currency || 'MXN'
+                                                                            policy.currency || 'MXN',
+                                                                            policy.end_date
                                                                         );
 
                                                                         // 2. Subir a Supabase Storage

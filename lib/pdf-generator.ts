@@ -13,7 +13,8 @@ export const generatePolicyCalendarPDF = (
     policyNumber: string,
     insurerName: string,
     installments: PaymentInstallment[],
-    currency: string = 'MXN'
+    currency: string = 'MXN',
+    policyEndDate?: string // v34+: Para calcular el último periodo
 ) => {
     const doc = new jsPDF()
     const primaryColor = [15, 23, 42] // Slate-900
@@ -45,31 +46,57 @@ export const generatePolicyCalendarPDF = (
     doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-MX')}`, 20, 83)
 
     // Installments Table
-    const tableRows = installments.map(inst => [
-        inst.installment_number.toString(),
-        new Date(inst.due_date).toLocaleDateString('es-MX'),
-        `${currency === 'USD' ? 'USD$' : '$'}${Number(inst.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
-        inst.status === 'Pagado' ? 'PAGADO' : 'PENDIENTE'
-    ])
+    const tableRows = installments.map((inst, index) => {
+        const startDate = new Date(inst.due_date)
+        
+        // Calcular Límite de Pago (30 días de gracia)
+        const limitDate = new Date(startDate)
+        limitDate.setDate(limitDate.getDate() + 30)
+
+        // Calcular Periodo (Hasta el siguiente recibo o fin de póliza)
+        let periodEnd = ""
+        if (index < installments.length - 1) {
+            periodEnd = new Date(installments[index + 1].due_date).toLocaleDateString('es-MX')
+        } else if (policyEndDate) {
+            periodEnd = new Date(policyEndDate).toLocaleDateString('es-MX')
+        }
+
+        const periodText = `Del ${startDate.toLocaleDateString('es-MX')} al ${periodEnd}`
+
+        return [
+            inst.installment_number.toString(),
+            periodText,
+            `${currency === 'USD' ? 'USD$' : '$'}${Number(inst.total_amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+            limitDate.toLocaleDateString('es-MX'),
+            inst.status === 'Pagado' ? 'PAGADO' : 'PENDIENTE'
+        ]
+    })
 
     autoTable(doc, {
         startY: 95,
-        head: [['Recibo', 'Fecha Vencimiento', 'Monto', 'Estado']],
+        head: [['Recibo', 'Periodo de Cobertura', 'Monto Total', 'Límite de Pago', 'Estado']],
         body: tableRows,
-        styles: { font: 'helvetica', fontSize: 9 },
-        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { font: 'helvetica', fontSize: 8 },
+        headStyles: { fillColor: primaryColor as [number, number, number], textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 250, 252] },
-        margin: { left: 20, right: 20 }
+        margin: { left: 15, right: 15 },
+        columnStyles: {
+            0: { cellWidth: 15 },
+            1: { cellWidth: 65 },
+            2: { cellWidth: 35 },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 30 }
+        }
     })
 
     // Footer Note
-    const finalY = (doc as any).lastAutoTable.finalY + 20
+    const finalY = (doc as any).lastAutoTable.finalY + 15
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
-    doc.text("Nota Importante:", 20, finalY)
+    doc.text("Información sobre el Periodo de Gracia:", 20, finalY)
     doc.setFontSize(8)
     const splitText = doc.splitTextToSize(
-        "Para mantener la vigencia de su protección, le sugerimos realizar sus pagos al menos 3 días antes de la fecha límite mostrada en este documento. Los pagos pueden tardar hasta 48 horas en verse reflejados en los sistemas de la aseguradora.",
+        "De acuerdo a las condiciones de su póliza, cuenta con un periodo de gracia de 30 días naturales a partir del inicio del recibo para realizar su pago sin perder la cobertura. Le sugerimos realizar su trámite con anticipación para evitar cualquier contratiempo.",
         170
     )
     doc.text(splitText, 20, finalY + 5)
