@@ -15,7 +15,7 @@ interface PaymentInstallment {
     status: string
 }
 
-export const generatePaymentSchedulePDF = (
+export const generatePolicyCalendarPDF = (
     clientName: string,
     policyNumber: string,
     insurerName: string,
@@ -85,43 +85,189 @@ export const generatePaymentSchedulePDF = (
     return doc.output('blob')
 }
 
-export const generateRecommendationsPDF = (
+export const generateInsuranceTipsPDF = async (
     clientName: string,
-    branchName: string
+    branchName: string,
+    recommendations: string[] = []
 ) => {
     const doc = new jsPDF()
-    const primaryColor = [5, 150, 105] // Emerald-600
-
+    const primaryColor = [15, 23, 42] // Slate-900 
+    const accentColor = [10, 150, 105] // Emerald
+    
     // Header
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2])
-    doc.rect(0, 0, 210, 40, 'F')
+    doc.rect(0, 0, 210, 45, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(22)
     doc.setFont("helvetica", "bold")
-    doc.text("GUÍA DE SEGURIDAD PREMIUM", 20, 20)
+    doc.text("RENE BRETON SEGUROS", 20, 20)
     doc.setFontSize(10)
-    doc.text("SU TRANQUILIDAD ES NUESTRA PRIORIDAD", 20, 28)
-
-    // Content
-    doc.setTextColor(30, 41, 59)
-    doc.setFontSize(14)
-    doc.text(`Recomendaciones para su Seguro de ${branchName}`, 20, 60)
-    
-    doc.setFontSize(11)
     doc.setFont("helvetica", "normal")
-    const tips = [
+    doc.text("GUÍA DE SEGURIDAD Y CONSEJOS PROFESIONALES", 20, 28)
+    doc.setFontSize(8)
+    doc.text("TU PATRIMONIO, EXPLICADO PASO A PASO", 20, 36)
+
+    // Body
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+    doc.setFontSize(16)
+    doc.setFont("helvetica", "bold")
+    doc.text(`MANUAL DE RECOMENDACIONES: ${branchName.toUpperCase()}`, 20, 60)
+    
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.text(`Estimado(a) ${clientName},`, 20, 70)
+    doc.text(`Como su agente, mi prioridad es que conozca los "detalles finos" de su contrato para evitar sorpresas.`, 20, 76)
+
+    const defaultTips = [
         "1. Mantenga su póliza digital siempre a la mano en su celular.",
-        "2. En caso de siniestro, repórtelo de inmediato a los números de asistencia.",
-        "3. No realice arreglos con terceros sin la presencia del ajustador.",
-        "4. Verifique periódicamente que sus datos de contacto estén actualizados.",
-        "5. Revise las coberturas contratadas antes de realizar viajes largos."
+        "2. En caso de siniestro, NO admita responsabilidad. Espere a su ajustador.",
+        "3. Verifique que el USO (Particular, App, Carga) coincida con su actividad real.",
+        "4. Cualquier adaptación o equipo especial debe estar declarado en la carátula.",
+        "5. Conducir con licencia vencida o bajo el influjo de alcohol puede anular su cobertura."
     ]
     
-    let currentY = 75
-    tips.forEach(tip => {
-        doc.text(tip, 20, currentY)
-        currentY += 10
+    const finalTips = recommendations.length > 0 ? recommendations : defaultTips
+    
+    let currentY = 90
+    finalTips.forEach((tip, idx) => {
+        // Draw bullet point
+        doc.setFillColor(accentColor[0], accentColor[1], accentColor[2])
+        doc.circle(23, currentY - 1, 1, 'F')
+        
+        doc.setTextColor(30, 41, 59)
+        const splitText = doc.splitTextToSize(tip, 160)
+        doc.text(splitText, 30, currentY)
+        currentY += (splitText.length * 6) + 4
+        
+        // New page if needed
+        if (currentY > 270) {
+            doc.addPage()
+            currentY = 20
+        }
     })
+
+    // Footer
+    doc.setTextColor(148, 163, 184)
+    doc.setFontSize(8)
+    doc.text("Este documento es una guía informativa y no sustituye las condiciones generales de su póliza.", 20, 285)
+
+    return doc.output('blob')
+}
+
+export const generateInsurerManualPDF = async (
+    clientName: string,
+    policyNumber: string,
+    insurerName: string,
+    insurerConfig: any
+) => {
+    const paymentMethods = insurerConfig.paymentMethods || []
+    const recommendations = insurerConfig.recommendations || []
+    const logoUrl = insurerConfig.logoUrl
+    const doc = new jsPDF()
+    const primaryColor = [15, 23, 42] // Slate-900
+    const accentColor = [16, 185, 129] // Emerald-500
+    let currentY = 45
+
+    // Header Branding
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2])
+    doc.rect(0, 0, 210, 45, 'F')
+    
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(22)
+    doc.setFont("helvetica", "bold")
+    doc.text("RENE BRETON SEGUROS", 20, 20)
+    
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.text("GUÍA DE PAGO Y ATENCIÓN PREMIUM", 20, 28)
+
+    // Footer contact
+    doc.setFontSize(8)
+    doc.text("Soporte: 24/7 vía WhatsApp", 20, 36)
+
+    // v35: Add Insurer Logo if available
+    if (logoUrl) {
+        try {
+            // En un entorno de navegador, podemos usar addImage con URL directamente 
+            // o cargarla primero. jspdf soporta URLs en algunos entornos, pero 
+            // lo más seguro es dejar el espacio o intentar cargarla.
+            doc.addImage(logoUrl, 'PNG', 160, 10, 30, 0) 
+        } catch (e) {
+            console.error("Could not load insurer logo", e)
+        }
+    }
+
+    // Title
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+    doc.setFontSize(16)
+    doc.setFont("helvetica", "bold")
+    doc.text(`INSTRUCCIONES DE PAGO: ${insurerName.toUpperCase()}`, 20, 60)
+
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.text(`Estimado(a) ${clientName},`, 20, 70)
+    doc.text(`A continuación encontrará los canales oficiales para realizar el pago de su póliza ${policyNumber} de forma segura.`, 20, 76)
+
+    // v35: Tips Section (Important for Quálitas)
+    if (recommendations.length > 0) {
+        doc.setFillColor(241, 245, 249) // Slate-100
+        doc.roundedRect(20, 85, 170, (recommendations.length * 6) + 10, 3, 3, 'F')
+        
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(9)
+        doc.text("NOTAS IMPORTANTES SOBRE TU PÓLIZA:", 25, 92)
+        
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(8)
+        recommendations.forEach((rec: string, i: number) => {
+            doc.text(`• ${rec}`, 25, 98 + (i * 5))
+        })
+        
+        currentY = 98 + (recommendations.length * 5) + 15
+    } else {
+        currentY = 90
+    }
+
+    paymentMethods.forEach((method: any, idx: number) => {
+        // Draw icon-like circle
+        doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2])
+        doc.setLineWidth(0.5)
+        doc.circle(25, currentY + 3, 4, 'S')
+        
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(11)
+        doc.text(method.label, 35, currentY + 4)
+        
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(10)
+        doc.setTextColor(71, 85, 105) // Slate-600
+        const splitInstructions = doc.splitTextToSize(method.instructions, 150)
+        doc.text(splitInstructions, 35, currentY + 10)
+        
+        if (method.url && method.url.startsWith('http')) {
+            doc.setTextColor( accentColor[0], accentColor[1], accentColor[2] )
+            doc.setFontSize(9)
+            doc.text(`Link: ${method.url}`, 35, currentY + 18)
+            currentY += 10
+        }
+
+        currentY += 25
+    })
+
+    // Additional Help
+    if (currentY < 250) {
+        doc.setFillColor(248, 250, 252)
+        doc.rect(20, currentY, 170, 30, 'F')
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+        doc.setFont("helvetica", "bold")
+        doc.text("¿Necesita ayuda?", 30, currentY + 10)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(9)
+        doc.text("En Rene Breton Seguros estamos para servirle. Si tiene problemas con su pago,", 30, currentY + 18)
+        doc.text("contáctenos de inmediato por WhatsApp para apoyarle con su línea de captura.", 30, currentY + 23)
+    }
 
     return doc.output('blob')
 }

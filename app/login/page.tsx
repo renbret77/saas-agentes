@@ -6,6 +6,7 @@ import { Eye, EyeOff, Lock, Mail, ArrowRight, Bot, MessageCircle, ShieldCheck, Z
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import PuzzleCaptcha from "@/components/auth/PuzzleCaptcha"
 
 export default function LoginPage() {
     const router = useRouter()
@@ -15,6 +16,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [mounted, setMounted] = useState(false)
     const [blockMessage, setBlockMessage] = useState("")
+    const [isHuman, setIsHuman] = useState(false)
 
     useEffect(() => {
         setMounted(true)
@@ -191,13 +193,21 @@ export default function LoginPage() {
                             </a>
                         </div>
 
+                        <PuzzleCaptcha 
+                            onVerify={() => setIsHuman(true)}
+                            className="pt-2"
+                        />
+
                         <motion.button
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
+                            whileHover={isHuman ? { scale: 1.01 } : {}}
+                            whileTap={isHuman ? { scale: 0.99 } : {}}
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || !isHuman}
                             className={cn(
-                                "w-full flex items-center justify-center py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all",
+                                "w-full flex items-center justify-center py-4 text-base font-bold rounded-xl shadow-lg transition-all",
+                                isHuman 
+                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20" 
+                                    : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200",
                                 isLoading && "opacity-70 cursor-not-allowed"
                             )}
                         >

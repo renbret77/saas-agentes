@@ -60,17 +60,46 @@ export const generateWhatsAppLink = (phone: any, text: string) => {
 }
 
 /**
- * Encapsula un link de Supabase en una página con branding del agente (v31)
+ * Encapsula un link de Supabase en una página con branding del agente (v32 - Links Cortos)
  */
-export const getBrandedViewerLink = (url: string, clientName: string, docType: string) => {
+export const getBrandedViewerLink = (url: string, clientName: string, docType: string, docId?: string) => {
     if (!url || url.includes('no_disponible')) return url
-    const baseUrl = "https://portalcaratulas.renebreton.mx/portal/view"
-    const params = new URLSearchParams({
-        p: url.split('/').pop() || '', // Solo el nombre del archivo
-        n: clientName,
-        t: docType
-    })
-    return `${baseUrl}?${params.toString()}`
+    const baseUrl = "https://portalcaratulas.renebreton.mx/p" // v32: Nueva ruta corta
+    
+    try {
+        const payload = JSON.stringify({
+            p: url.split('/').pop() || '', 
+            n: clientName,
+            t: docType,
+            id: docId // v32: ID de la base de datos para tracking
+        })
+        // Generar Base64URL (stateless shortlink)
+        const shortId = Buffer.from(payload).toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '')
+            
+        return `${baseUrl}/${shortId}`
+    } catch (e) {
+        // Fallback al formato anterior si algo falla
+        const legacyBase = "https://portalcaratulas.renebreton.mx/portal/view"
+        const params = new URLSearchParams({
+            p: url.split('/').pop() || '',
+            n: clientName,
+            t: docType
+        })
+        return `${legacyBase}?${params.toString()}`
+    }
+}
+
+/**
+ * Helper para estilización de botones en WhatsApp (v33 - Simplificado)
+ */
+const getPremiumButton = (label: string, url: string) => {
+    return [
+        `*${label.toUpperCase()}*`,
+        url
+    ].join('\n')
 }
 
 /**
@@ -106,10 +135,10 @@ export const getCollectionMessage = (
     const isOverdue = today > limitDate
     const isImminent = daysUntilDue >= 0 && daysUntilDue <= 3
 
-    // Configuración de Estética Premium según Contexto
-    let statusHeader = `${eDiamond} *PORTAL DE PROTECCIÓN PREMIUM*`
-    let mainAction = 'RECORDATORIO DE PAGO'
-    let alertIcon = eSpark
+    // Configuración de Estética Premium según Contexto (v33 - Simplificado)
+    let statusHeader = '' // Eliminamos el banner superior solicitado por el usuario
+    let mainAction = 'AVISO DE PAGO'
+    let alertIcon = eBell
     let contextMessage = `Hola *${clientName}*, nos ponemos en contacto contigo para saludarte y recordarte que tu protección requiere atención. ${eHandshake}`
     let urgencyNote = ''
 
@@ -167,18 +196,18 @@ export const getPreRenewalMessage = (
     estimatedPremium?: number,
     currencySymbol: string = '$',
 ) => {
-    return `${eClock} *RECORDATORIO DE RENOVACIÓN* ${eClock}
+    return `${eClock} *RENOVACIÓN PRÓXIMA* ${eClock}
  
 Hola *${clientName}*, te saludo con gusto. ${eWave}
  
-Te informo que tu póliza está próxima a vencer y es el momento ideal para revisar las condiciones de tu renovación:
+Tu póliza está próxima a vencer. Te compartimos los detalles para revisar tu renovación:
  
 ${eBuilding} *Aseguradora:* ${insurerName}
 ${eShield} *Ramo:* ${policyType}
 🔢 *Póliza:* *${policyNumber}*
-${eCalendar} *Vencimiento Actual:* *${formatDate(endDate)}*
+${eCalendar} *Vencimiento:* *${formatDate(endDate)}*
  
-¿Gustas que revisemos la propuesta para este nuevo periodo? Quedo a tus órdenes ante cualquier duda o comentario para que sigas siempre protegido. ${eSmile}`
+¿Gustas que revisemos la propuesta para este nuevo periodo? ${eSmile}`
 }
 
 /**
@@ -206,7 +235,7 @@ export const getRenewedMessage = (
         '',
         `Hola *${clientName}*, ¡un gusto saludarte! Te confirmo que tu protección ha sido renovada con éxito por un nuevo periodo.`,
         '',
-        `${eDiamond} *DETALLES DE TU NUEVA PÓLIZA*`,
+        `*DETALLES DE TU NUEVA PÓLIZA*`,
         `━━━━━━━━━━━━━━━━━━━━`,
         `${eBuilding} *Aseguradora:* ${insurerName}`,
         `🔢 *Póliza:* *${policyNumber}*`,
@@ -223,16 +252,11 @@ export const getRenewedMessage = (
         `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
         `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
-        `Presiona el botón de acceso para visualizar tu nueva carátula de forma segura.`,
+        `Presiona el enlace para visualizar tu nueva carátula:`,
         '',
-        `*---------------------------------*`,
-        `   *📥 ABRIR CARÁTULA*`,
-        `*---------------------------------*`,
-        policyLink,
+        getPremiumButton('Ver Póliza', policyLink),
         '',
-        `Gracias por seguir confiando en nosotros. ¡Quedo a tus órdenes! ${eSmile}`,
-        '',
-        `*PORTAL DE PROTECCIÓN PREMIUM*`
+        `Gracias por seguir confiando en nosotros. ¡Quedo a tus órdenes! ${eSmile}`
     ].join('\n')
 }
 
@@ -256,11 +280,11 @@ export const getWelcomeMessage = (
     coverage: string = 'Amplia / Según Carátula'
 ) => {
     return [
-        `${eStar} *¡BIENVENIDO A TU PROTECCIÓN PREMIUM!* ${eStar}`,
+        `*ENTREGA DE PÓLIZA*`,
         '',
         `Hola *${clientName}*, ¡gracias por tu preferencia! Es un gusto saludarte y confirmarte el alta exitosa de tu protección.`,
         '',
-        `${eDiamond} *DETALLES DE TU PÓLIZA*`,
+        `*DETALLES DE TU PÓLIZA*`,
         `━━━━━━━━━━━━━━━━━━━━`,
         `${eBuilding} *Aseguradora:* ${insurerName}`,
         `🔢 *Póliza:* *${policyNumber}*`,
@@ -277,16 +301,11 @@ export const getWelcomeMessage = (
         `${eHourglass} *Límite 1er Pago:* *${formatDate(limitDateFirst)}*`,
         '',
         `${eMemo} *TU DOCUMENTACIÓN DIGITAL*`,
-        `Presiona el botón de acceso para abrir tu póliza en el Portal Digital.`,
+        `Presiona el enlace para abrir tu póliza en el Portal Digital:`,
         '',
-        `*---------------------------------*`,
-        `   *📥 ABRIR PÓLIZA*`,
-        `*---------------------------------*`,
-        policyLink,
+        getPremiumButton('Ver Póliza', policyLink),
         '',
-        `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${eSmile}`,
-        '',
-        `*PORTAL DE PROTECCIÓN PREMIUM*`
+        `Cualquier duda que tengas, no dudes en hacérmelo saber por este medio. ¡Que tengas un excelente día! ${eSmile}`
     ].join('\n')
 }
 
@@ -342,12 +361,9 @@ export const getDirectLinkMessage = (clientName: string, policyLink: string) => 
     return [
         `*${clientName}*, ¡pica este link! ${String.fromCodePoint(0x1F449)}`,
         '',
-        `${eShield} Aquí se encuentra tu carátula digital:`,
+        `${eShield} Tu carátula digital está lista:`,
         '',
-        `*---------------------------------*`,
-        `   *📥 VER MI CARÁTULA*`,
-        `*---------------------------------*`,
-        policyLink,
+        getPremiumButton('Ver Póliza', policyLink),
         '',
         `Guárdala bien para cualquier emergencia. ${eSmile}`
     ].join('\n')
@@ -359,12 +375,23 @@ export const getManualMessage = (clientName: string, insurerName: string, manual
         '',
         `Aquí encontrarás todas las opciones (Bancos, App o Tiendas) para realizar tus pagos de forma correcta.`,
         '',
-        `*---------------------------------*`,
-        `   *📥 VER MANUAL DE PAGO*`,
-        `*---------------------------------*`,
-        manualLink,
+        getPremiumButton('Ver Manual', manualLink),
         '',
         `¡Excelente día! ${eSmile}`
+    ].join('\n')
+}
+
+export const getReminderMessage = (clientName: string, docType: string, policyLink: string) => {
+    return [
+        `${eBell} *AVISO DE SEGURIDAD* ${eBell}`,
+        '',
+        `Hola *${clientName}*, notamos que aún no has visualizado tu *${docType}* en la Bóveda Digital.`,
+        '',
+        `Es muy importante que la revises para confirmar que todos tus datos sean correctos y tenerla a la mano en caso de cualquier siniestro. ${eShield}`,
+        '',
+        getPremiumButton(`Ver mi ${docType}`, policyLink),
+        '',
+        `Si tienes algún problema para abrir el enlace, avísame por aquí. ¡Quedo a tus órdenes! ${eSmile}`
     ].join('\n')
 }
 
@@ -376,10 +403,7 @@ export const getTipsMessage = (clientName: string, insuranceType: string, tipsLi
         '',
         `Revísala para saber qué hacer en caso de siniestro y mantener tu protección al 100%.`,
         '',
-        `*---------------------------------*`,
-        `   *📥 VER RECOMENDACIONES*`,
-        `*---------------------------------*`,
-        tipsLink,
+        getPremiumButton('Ver Guía', tipsLink),
         '',
         `Estamos para servirte. ${eSmile}`
     ].join('\n')

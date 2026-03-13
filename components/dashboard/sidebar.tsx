@@ -15,7 +15,10 @@ import {
     LogOut,
     Menu,
     ShieldAlert,
+    Shield,
+    TrendingUp,
     Target,
+    Image as ImageIcon,
     Heart,
     Sparkles,
     Coins,
@@ -30,19 +33,22 @@ import { UpsellModal } from "./upsell-modal"
 
 const menuItems = [
     { icon: LayoutDashboard, label: "Resumen", href: "/dashboard" },
+    { icon: Target, label: "Prospectos / Ventas", href: "/dashboard/prospects" },
+    { icon: ImageIcon, label: "Marketing / Archivos", href: "/dashboard/marketing-assets" },
     { icon: CalendarIcon, label: "Agenda / Mando", href: "/dashboard/agenda" },
     { icon: Users, label: "Clientes", href: "/dashboard/clients" },
     { icon: Sparkles, label: "Cotizaciones", href: "/dashboard/quotes" },
     { icon: TrendingUp, label: "CRM / Pipeline", href: "/dashboard/pipeline" },
     { icon: Target, label: "Venta Cruzada", href: "/dashboard/cross-sell" },
     { icon: FileText, label: "Pólizas", href: "/dashboard/policies" },
+    { icon: CreditCard, label: "Calendario de Recibos", href: "/dashboard/recibos" },
     { icon: Heart, label: "Fidelización", href: "/dashboard/loyalty" },
     { icon: TrendingUp, label: "Reportes", href: "/dashboard/reports" },
     { icon: ShieldAlert, label: "Siniestros", href: "/dashboard/claims" },
     { icon: Shield, label: "Aseguradoras", href: "/dashboard/insurers" },
     { icon: RefreshCw, label: "Migración SICAS", href: "/dashboard/import" },
     { icon: Terminal, label: "Centro de Comando", href: "/dashboard/admin" },
-    { icon: CreditCard, label: "Cobranza", href: "/dashboard/billing" },
+    { icon: CreditCard, label: "Suscripción", href: "/dashboard/billing" },
     { icon: Settings, label: "Configuración", href: "/dashboard/settings" },
 ]
 
@@ -175,7 +181,7 @@ export function Sidebar() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
                             </span>
-                            BUILD 11/MAR 22:56
+                            v.22:15 | BUILD 12/MAR 17:25
                         </span>
                     </div>
                 </Link>

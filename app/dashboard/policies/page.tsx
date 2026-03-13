@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw, Link as LinkIcon } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw, Link as LinkIcon, Users, Check, Mail as MailIcon } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
@@ -18,7 +18,17 @@ export default function PoliciesPage() {
     const [policies, setPolicies] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
-    const [expandedRow, setExpandedRow] = useState<string | null>(null)
+    const [filterStatus, setFilterStatus] = useState("Vigente")
+    const [expandedPolicy, setExpandedPolicy] = useState<string | null>(null)
+
+    // v2.5: Notificaciones Multi-Medio
+    const [showContactSelector, setShowContactSelector] = useState(false)
+    const [selectorConfig, setSelectorConfig] = useState<{
+        type: 'whatsapp' | 'email',
+        message: string,
+        subject?: string,
+        clientData: any
+    } | null>(null)
 
     const formatCurrency = (val: any) => {
         try {
@@ -38,7 +48,7 @@ export default function PoliciesPage() {
                 .from('policies')
                 .select(`
                     *,
-                    clients (first_name, last_name, phone, whatsapp),
+                    clients (first_name, last_name, phone, whatsapp, additional_phones, additional_emails),
                     insurers (name, alias),
                     insurance_lines (name),
                     policy_installments (id, installment_number, total_amount, status, whatsapp_sent, whatsapp_status, due_date),
@@ -197,7 +207,7 @@ export default function PoliciesPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredPolicies.map((policy, index) => {
-                                    const isExpanded = expandedRow === policy.id;
+                                    const isExpanded = expandedPolicy === policy.id;
                                     const status = getComputedStatus(policy);
                                     
                                     // Lógica de Pre-Renovación (30 días antes)
@@ -208,7 +218,7 @@ export default function PoliciesPage() {
 
                                     return (
                                         <React.Fragment key={policy.id}>
-                                            <tr className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-emerald-50/30 transition-colors group cursor-pointer`} onClick={() => setExpandedRow(isExpanded ? null : policy.id)}>
+                                            <tr className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-emerald-50/30 transition-colors group cursor-pointer`} onClick={() => setExpandedPolicy(isExpanded ? null : policy.id)}>
                                                 <td className="px-4 py-5 text-center">
                                                     {isExpanded ? <ChevronDown className="w-4 h-4 text-emerald-600" /> : <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400" />}
                                                 </td>
@@ -365,12 +375,14 @@ export default function PoliciesPage() {
                                                                                                                 policy.policy_installments?.length || 1,
                                                                                                                 graceDays,
                                                                                                                 policy.sub_branch
-                                                                                                            );
-
-                                                                                                            const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg);
-                                                                                                            window.open(waLink, '_blank');
-                                                                                                        }}
-                                                                                                        className="text-[9px] font-black text-emerald-600 hover:text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95 flex items-center gap-1"
+                                                                                                            );                                                                                setSelectorConfig({
+                                                                                    type: 'whatsapp',
+                                                                                    message: msg,
+                                                                                    clientData: policy.clients
+                                                                                });
+                                                                                setShowContactSelector(true);
+                                                                            }}
+                                                                            className="text-[9px] font-black text-emerald-600 hover:text-emerald-800 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95 flex items-center gap-1"
                                                                                                         title="Cobrar vía WhatsApp"
                                                                                                     >
                                                                                                         <MessageCircle className="w-3 h-3" /> WhatsApp
@@ -394,13 +406,15 @@ export default function PoliciesPage() {
                                                                                                                 policy.policy_installments?.length || 1,
                                                                                                                 graceDays,
                                                                                                                 policy.sub_branch
-                                                                                                            );
-
-                                                                                                            const subject = encodeURIComponent(`Recordatorio de Pago: Póliza ${policy.policy_number} - ${policy.insurers?.alias || policy.insurers?.name}`);
-                                                                                                            const mailto = `mailto:?subject=${subject}&body=${encodeURIComponent(content)}`;
-                                                                                                            window.open(mailto, '_blank');
-                                                                                                        }}
-                                                                                                        className="p-1 px-2 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-95 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest"
+                                                                                                            );                                                                                setSelectorConfig({
+                                                                                    type: 'email',
+                                                                                    message: content,
+                                                                                    subject: `Recordatorio de Pago: Póliza ${policy.policy_number} - ${policy.insurers?.alias || policy.insurers?.name}`,
+                                                                                    clientData: policy.clients
+                                                                                });
+                                                                                setShowContactSelector(true);
+                                                                            }}
+                                                                            className="p-1 px-2 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-95 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest"
                                                                                                         title="Enviar por Correo"
                                                                                                     >
                                                                                                         <Mail className="w-3 h-3" /> Correo
@@ -594,6 +608,117 @@ export default function PoliciesPage() {
                 <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 08:30 PM</span>
                 <span className="text-[10px] font-bold text-slate-300">© 2026 Portal SaaS</span>
             </div>
+
+            {/* Modal Selección de Contacto (v2.5) */}
+            {showContactSelector && selectorConfig && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                    {selectorConfig.type === 'whatsapp' ? (
+                                        <div className="p-2 bg-emerald-100 rounded-2xl text-emerald-600">
+                                            <MessageSquare className="w-6 h-6" />
+                                        </div>
+                                    ) : (
+                                        <div className="p-2 bg-blue-100 rounded-2xl text-blue-600">
+                                            <MailIcon className="w-6 h-6" />
+                                        </div>
+                                    )}
+                                    Enviar {selectorConfig.type === 'whatsapp' ? 'WhatsApp' : 'Correo'}
+                                </h3>
+                                <p className="text-slate-500 font-medium mt-1">Selecciona el destinatario de la lista</p>
+                            </div>
+                            <button 
+                                onClick={() => setShowContactSelector(false)}
+                                className="p-3 hover:bg-slate-100 rounded-full text-slate-400 transition-all active:scale-90"
+                            >
+                                <Plus className="w-6 h-6 rotate-45" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar bg-slate-50/30">
+                            {(() => {
+                                const contacts = []
+                                const client = selectorConfig.clientData
+                                
+                                if (selectorConfig.type === 'whatsapp') {
+                                    if (client.whatsapp) contacts.push({ name: `${client.first_name} (WhatsApp)`, value: client.whatsapp, type: 'Primario', isAlert: true })
+                                    if (client.mobile_phone && client.mobile_phone !== client.whatsapp) contacts.push({ name: `${client.first_name} (Móvil)`, value: client.mobile_phone, type: 'Secundario' })
+                                    
+                                    // v3.0: WhatsApp Adicionales
+                                    const additional = (client.additional_phones as any[]) || []
+                                    additional.forEach(ap => {
+                                        if (ap.phone) contacts.push({ name: ap.name || 'WhatsApp Adicional', value: ap.phone, type: 'Persistente', isAlert: ap.notify })
+                                    })
+                                } else {
+                                    if (client.email) contacts.push({ name: `${client.first_name} (Principal)`, value: client.email, type: 'Primario', isAlert: true })
+                                    if (client.secondary_email) contacts.push({ name: `${client.first_name} (Alternativo)`, value: client.secondary_email, type: 'Secundario' })
+
+                                    // v3.0: Correo Adicionales
+                                    const additional = (client.additional_emails as any[]) || []
+                                    additional.forEach(ae => {
+                                        if (ae.email) contacts.push({ name: ae.name || 'Correo Adicional', value: ae.email, type: 'Persistente', isAlert: ae.notify })
+                                    })
+                                }
+
+                                const related = (client.related_contacts as any[]) || []
+                                related.forEach(c => {
+                                    const val = selectorConfig.type === 'whatsapp' ? c.phone : c.email
+                                    if (val) contacts.push({ name: c.name, value: val, type: c.relation || 'Relacionado', isAlert: c.notify })
+                                })
+
+                                return contacts.length > 0 ? contacts.map((contact, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => {
+                                            if (selectorConfig.type === 'whatsapp') {
+                                                const link = generateWhatsAppLink(contact.value, selectorConfig.message)
+                                                window.open(link, '_blank')
+                                            } else {
+                                                const link = `mailto:${contact.value}?subject=${encodeURIComponent(selectorConfig.subject || '')}&body=${encodeURIComponent(selectorConfig.message)}`
+                                                window.open(link, '_blank')
+                                            }
+                                            setShowContactSelector(false)
+                                        }}
+                                        className="w-full flex items-center justify-between p-5 mb-4 bg-white border border-slate-100 rounded-[1.5rem] hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/10 transition-all group active:scale-[0.98]"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                                                {selectorConfig.type === 'whatsapp' ? <MessageSquare className="w-6 h-6" /> : <MailIcon className="w-6 h-6" />}
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">{contact.name}</p>
+                                                <p className="text-xs text-slate-500 font-medium">{contact.value}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {contact.isAlert && (
+                                                <span className="px-2 py-0.5 bg-emerald-100 text-[9px] font-black text-emerald-700 rounded-md border border-emerald-200">ALERTA</span>
+                                            )}
+                                            <span className="px-3 py-1 bg-slate-100 text-[10px] font-black text-slate-600 rounded-full uppercase tracking-tighter">
+                                                {contact.type}
+                                            </span>
+                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-500 transition-all group-hover:translate-x-1" />
+                                        </div>
+                                    </button>
+                                )) : (
+                                    <div className="py-12 text-center">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                                            <AlertCircle className="w-8 h-8" />
+                                        </div>
+                                        <p className="text-slate-500 font-medium italic">No se encontraron {selectorConfig.type === 'whatsapp' ? 'teléfonos' : 'correos'} disponibles.</p>
+                                    </div>
+                                )
+                            })()}
+                        </div>
+                        
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-center">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest"> RB Proyectos • Sistema de Notificaciones </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

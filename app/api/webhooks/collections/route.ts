@@ -55,6 +55,8 @@ export async function GET(request: Request) {
                     first_name, 
                     last_name, 
                     phone,
+                    additional_phones,
+                    additional_emails,
                     profiles (country_code, default_currency)
                 ),
                 insurers (alias, name),
@@ -69,8 +71,10 @@ export async function GET(request: Request) {
         today.setHours(0, 0, 0, 0)
 
         // 3. Procesamiento y Lógica Inteligente
-        const notificationsToSent = (policies || []).map((policy: any) => {
-            if (policy.status === 'Cancelada') return null
+        const notificationsToSent: any[] = []
+
+        for (const policy of (policies || [])) {
+            if (policy.status === 'Cancelada') continue
 
             const targetDate = new Date(policy.end_date)
             targetDate.setHours(0, 0, 0, 0)
@@ -78,31 +82,32 @@ export async function GET(request: Request) {
             const diffTime = targetDate.getTime() - today.getTime()
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-            const client = policy.clients
-            const agentProfile = Array.isArray(client?.profiles) ? client.profiles[0] : client?.profiles
+            // Supabase joins can return objects or arrays depending on schema mapping
+            const clientRaw = policy.clients
+            const client = Array.isArray(clientRaw) ? clientRaw[0] : clientRaw
+            
+            if (!client) continue
+
+            const profileRaw = client.profiles
+            const agentProfile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw
+            
             const countryCode = agentProfile?.country_code || 'MX'
             const defaultCurrency = policy.currency || agentProfile?.default_currency || 'MXN'
 
-            const clientName = client?.first_name || 'Cliente'
-            let clientPhone = (client?.phone || '').replace(/\D/g, '')
+            const clientName = client.first_name || 'Cliente'
+            
+            // --- Preparar Datos de Mensaje ---
+            const insuranceLineRaw = policy.insurance_lines
+            const insuranceLine = Array.isArray(insuranceLineRaw) ? insuranceLineRaw[0] : insuranceLineRaw
+            const policyType = insuranceLine?.name || 'Seguro'
 
-            // --- Lógica de Telefonía Internacional ---
-            if (countryCode === 'MX') {
-                if (clientPhone.startsWith('52') && clientPhone.length === 12) {
-                    clientPhone = '521' + clientPhone.substring(2)
-                } else if (clientPhone.length === 10) {
-                    clientPhone = '521' + clientPhone
-                }
-            }
+            const insurerRaw = policy.insurers
+            const insurer = Array.isArray(insurerRaw) ? insurerRaw[0] : insurerRaw
+            const insurerName = insurer?.alias || insurer?.name || 'Aseguradora'
 
-            if (!clientPhone || clientPhone === '') return null
-
-            const policyType = policy.insurance_lines?.name || 'Seguro'
-            const insurerName = policy.insurers?.alias || policy.insurers?.name || 'Aseguradora'
             const amount = Number(policy.premium_total) || Number(policy.premium_net) || 0
             const paymentMethod = (policy.payment_method || 'Anual') as PaymentMethod
 
-            // Mapeo de Símbolo de Moneda
             let currencySymbol = '$'
             if (defaultCurrency === 'EUR') currencySymbol = '€'
             if (defaultCurrency === 'GBP') currencySymbol = '£'
@@ -117,27 +122,58 @@ export async function GET(request: Request) {
                 targetDate.toISOString(),
                 policy.current_installment || 1,
                 policy.total_installments || 1,
-                0, // Grace days (default 0 for automation unless we fetch config)
+                0,
                 policy.sub_branch,
                 currencySymbol
             )
 
-            if (!messageStr) return null
+            if (!messageStr) continue
 
-            return {
+            const baseNotification = {
                 policy_id: policy.id,
                 client_name: clientName,
-                phone: clientPhone,
                 message: messageStr,
                 urgency_days: diffDays,
                 payment_method: paymentMethod,
-                // Payload extra para Email / Otros
                 is_domiciled: policy.is_domiciled,
                 payment_link: policy.payment_link,
                 receipt_number: `${policy.current_installment || 1}/${policy.total_installments || 1}`,
                 currency: defaultCurrency
             }
-        }).filter(item => item !== null)
+
+            // --- Lógica de Telefonía Internacional (Helper) ---
+            const formatPhone = (rawPhone: any) => {
+                let p = (String(rawPhone || '')).replace(/\D/g, '')
+                if (countryCode === 'MX') {
+                    if (p.startsWith('52') && p.length === 12) p = '521' + p.substring(2)
+                    else if (p.length === 10) p = '521' + p
+                }
+                return p
+            }
+
+            // 1. Canal Principal (WhatsApp)
+            const mainPhone = formatPhone(client.phone)
+            if (mainPhone) {
+                notificationsToSent.push({ ...baseNotification, phone: mainPhone, channel: 'whatsapp' })
+            }
+
+            // 2. Canales Adicionales (WhatsApp)
+            const additionalPhones = (client.additional_phones as any[]) || []
+            additionalPhones.forEach(ap => {
+                if (ap.notify && ap.phone) {
+                    const p = formatPhone(ap.phone)
+                    if (p) notificationsToSent.push({ ...baseNotification, phone: p, channel: 'whatsapp', recipient_name: ap.name })
+                }
+            })
+
+            // 3. Canales de Email
+            const additionalEmails = (client.additional_emails as any[]) || []
+            additionalEmails.forEach(ae => {
+                if (ae.notify && ae.email) {
+                    notificationsToSent.push({ ...baseNotification, email: ae.email, channel: 'email', recipient_name: ae.name })
+                }
+            })
+        }
 
         // 4. Retornar el volumen limpio a N8N
         return NextResponse.json({

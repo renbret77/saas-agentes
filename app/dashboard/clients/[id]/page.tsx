@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Loader2, User, Briefcase, Phone, FileText, Users, Plus, Trash2, MapPin, BadgeCheck, Mail, MessageSquare, BellRing, Shield, CreditCard, ChevronRight, CheckCircle2, AlertCircle, Clock } from "lucide-react"
+import { ArrowLeft, Save, Loader2, User, Briefcase, Phone, FileText, Users, Plus, Trash2, MapPin, BadgeCheck, Mail, MessageSquare, BellRing, Shield, CreditCard, ChevronRight, CheckCircle2, AlertCircle, Clock, Check, Mail as MailIcon } from "lucide-react"
 import Link from "next/link"
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
@@ -35,6 +35,14 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
 
+    // v2.5: Notificaciones Multi-Medio
+    const [showContactSelector, setShowContactSelector] = useState(false)
+    const [selectorConfig, setSelectorConfig] = useState<{
+        type: 'whatsapp' | 'email',
+        message: string,
+        subject?: string
+    } | null>(null)
+
     const [formData, setFormData] = useState<Partial<ClientInsert>>({
         first_name: "",
         last_name: "",
@@ -58,6 +66,8 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         notes: "",
         whatsapp: "",
         telegram: "",
+        additional_emails: [],
+        additional_phones: [],
         related_contacts: [],
         addresses: [],
         identifications: []
@@ -92,7 +102,12 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                         ...clientData,
                         phone: ensureE164(clientData.phone),
                         mobile_phone: ensureE164(clientData.mobile_phone),
-                        work_phone: ensureE164(clientData.work_phone)
+                        work_phone: ensureE164(clientData.work_phone),
+                        additional_phones: (clientData.additional_phones as any[])?.map((p: any) => ({
+                            ...p,
+                            phone: ensureE164(p.phone)
+                        })) || [],
+                        additional_emails: clientData.additional_emails || []
                     })
 
                     // Fetch Policies and Collection (v24)
@@ -140,7 +155,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         fetchClient()
     }, [params.id, router])
 
-    const addItem = (field: 'related_contacts' | 'addresses' | 'identifications', initialItem: any) => {
+    const addItem = (field: 'related_contacts' | 'addresses' | 'identifications' | 'additional_phones' | 'additional_emails', initialItem: any) => {
         const currentList = (formData[field] as any[]) || []
         setFormData({
             ...formData,
@@ -148,7 +163,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         })
     }
 
-    const removeItem = (field: 'related_contacts' | 'addresses' | 'identifications', index: number) => {
+    const removeItem = (field: 'related_contacts' | 'addresses' | 'identifications' | 'additional_phones' | 'additional_emails', index: number) => {
         const currentList = (formData[field] as any[]) || []
         setFormData({
             ...formData,
@@ -156,7 +171,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         })
     }
 
-    const updateItem = (field: 'related_contacts' | 'addresses' | 'identifications', index: number, subfield: string, value: any) => {
+    const updateItem = (field: 'related_contacts' | 'addresses' | 'identifications' | 'additional_phones' | 'additional_emails', index: number, subfield: string, value: any) => {
         const currentList = [...((formData[field] as any[]) || [])]
         currentList[index] = { ...currentList[index], [subfield]: value }
         setFormData({ ...formData, [field]: currentList })
@@ -165,6 +180,21 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
     const addContact = () => addItem('related_contacts', { name: '', relation: '', email: '', phone: '', is_payer: false, notify: false })
     const removeContact = (index: number) => removeItem('related_contacts', index)
     const updateContact = (index: number, field: string, value: any) => updateItem('related_contacts', index, field, value)
+
+    const addAdditionalPhone = () => {
+        const current = (formData.additional_phones as any[]) || []
+        if (current.length >= 5) {
+            alert("Máximo 5 números de WhatsApp adicionales permitidos.")
+            return
+        }
+        addItem('additional_phones', { name: '', phone: '', notify: true })
+    }
+    const removeAdditionalPhone = (index: number) => removeItem('additional_phones', index)
+    const updateAdditionalPhone = (index: number, field: string, value: any) => updateItem('additional_phones', index, field, value)
+
+    const addAdditionalEmail = () => addItem('additional_emails', { name: '', email: '', notify: true })
+    const removeAdditionalEmail = (index: number) => removeItem('additional_emails', index)
+    const updateAdditionalEmail = (index: number, field: string, value: any) => updateItem('additional_emails', index, field, value)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({
@@ -230,6 +260,17 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
             if (cleanedData.birth_date === "") cleanedData.birth_date = null
             delete cleanedData.telegram // v28: Excluido por falta de columna en DB
 
+            // v3.0: Limpieza de canales adicionales
+            if (Array.isArray(cleanedData.additional_phones)) {
+                cleanedData.additional_phones = cleanedData.additional_phones
+                    .filter((p: any) => p.phone && p.phone.trim() !== '')
+                    .map((p: any) => ({ ...p, phone: p.phone.replace(/\s/g, '') }))
+            }
+            if (Array.isArray(cleanedData.additional_emails)) {
+                cleanedData.additional_emails = cleanedData.additional_emails
+                    .filter((e: any) => e.email && e.email.trim() !== '')
+            }
+
             // Remove ID and created_at/user_id from update payload if present/readonly
             const { id, created_at, user_id, ...restPayload } = cleanedData as any
             const updatePayload = restPayload as Database['public']['Tables']['clients']['Update']
@@ -278,6 +319,20 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
         } else if (userInput !== null) {
             alert("Confirmación incorrecta. No se eliminó el cliente.")
         }
+    }
+
+    // Handlers para Notificaciones (v2.5)
+    const handleSendWhatsAppManual = () => {
+        const msg = `Hola *${formData.first_name}*, te envío un cordial saludo. Quedo a tus órdenes para cualquier duda sobre tus seguros. ✨`
+        setSelectorConfig({ type: 'whatsapp', message: msg })
+        setShowContactSelector(true)
+    }
+
+    const handleSendEmailManual = () => {
+        const msg = `Hola ${formData.first_name}, espero que te encuentres muy bien.\n\nTe envío este correo para saludarte y confirmar que sigo a tus órdenes para la gestión de tus pólizas.\n\nSaludos cordiales.`
+        const subject = `Saludo de tu Agente de Seguros - RB Proyectos`
+        setSelectorConfig({ type: 'email', message: msg, subject })
+        setShowContactSelector(true)
     }
 
     if (loading) return <div className="p-8 text-center">Cargando datos del cliente...</div>
@@ -900,9 +955,162 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                     />
                                     <p className="text-[10px] text-slate-400 italic ml-1">* Canal alternativo para notificaciones premium.</p>
                                 </div>
-                            </div>
 
-                            <div className="space-y-6">
+                                {/* v3.0: WhatsApps Adicionales */}
+                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-bold text-slate-700 block ml-1 flex items-center gap-2">
+                                            <MessageSquare className="w-4 h-4 text-emerald-500" /> WhatsApps Adicionales (Máx. 5)
+                                        </label>
+                                        <button 
+                                            type="button" 
+                                            onClick={addAdditionalPhone}
+                                            className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                        >
+                                            <Plus className="w-3 h-3" /> Agregar otro
+                                        </button>
+                                    </div>
+                                    
+                                    {(formData.additional_phones as any[] || []).map((p, idx) => (
+                                        <div key={idx} className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 space-y-3 animate-in slide-in-from-top-2 duration-300">
+                                            <div className="flex gap-3">
+                                                <div className="flex-1 space-y-1">
+                                                    <input 
+                                                        className="w-full bg-transparent border-none text-xs font-bold text-slate-900 placeholder:text-slate-400 p-0 focus:ring-0"
+                                                        placeholder="Nombre / Parentesco (Ej: Esposa)"
+                                                        value={p.name}
+                                                        onChange={(e) => updateAdditionalPhone(idx, 'name', e.target.value)}
+                                                    />
+                                                    <PhoneInput
+                                                        international
+                                                        defaultCountry="MX"
+                                                        value={p.phone || undefined}
+                                                        onChange={(val) => updateAdditionalPhone(idx, 'phone', val)}
+                                                        className="w-full bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm text-sm"
+                                                    />
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => removeAdditionalPhone(idx)}
+                                                    className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={p.notify}
+                                                        onChange={(e) => updateAdditionalPhone(idx, 'notify', e.target.checked)}
+                                                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                                    />
+                                                    <span className="text-[11px] font-medium text-slate-500">Enviar alertas automáticas</span>
+                                                </label>
+                                                {/* Selector de contactos existentes */}
+                                                <select 
+                                                    className="text-[10px] bg-white border border-slate-200 rounded-md px-1 py-0.5 text-slate-600 outline-none"
+                                                    onChange={(e) => {
+                                                        const contact = (formData.related_contacts as any[] || []).find(c => c.name === e.target.value);
+                                                        if (contact) {
+                                                            updateAdditionalPhone(idx, 'name', contact.name);
+                                                            updateAdditionalPhone(idx, 'phone', contact.phone);
+                                                        }
+                                                    }}
+                                                    value=""
+                                                >
+                                                    <option value="" disabled>Elegir de contactos...</option>
+                                                    {(formData.related_contacts as any[] || []).map((c, i) => (
+                                                        <option key={i} value={c.name}>{c.name} ({c.relation})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+ 
+                             <div className="space-y-6">
+                                <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                        <Mail className="w-4 h-4 text-blue-500" /> Correos para Notificación
+                                    </h4>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Correo Principal</label>
+                                            <input 
+                                                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 font-medium text-sm"
+                                                value={formData.email || ''}
+                                                disabled
+                                            />
+                                        </div>
+                                        
+                                        {(formData.additional_emails as any[] || []).map((em, idx) => (
+                                            <div key={idx} className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 space-y-3 animate-in slide-in-from-top-2 duration-300">
+                                                <div className="flex gap-3">
+                                                    <div className="flex-1 space-y-2">
+                                                        <input 
+                                                            className="w-full bg-transparent border-none text-xs font-bold text-slate-900 placeholder:text-slate-400 p-0 focus:ring-0"
+                                                            placeholder="Etiqueta (Ej: Trabajo)"
+                                                            value={em.name}
+                                                            onChange={(e) => updateAdditionalEmail(idx, 'name', e.target.value)}
+                                                        />
+                                                        <input 
+                                                            type="email"
+                                                            className="w-full bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm text-sm"
+                                                            placeholder="correo@ejemplo.com"
+                                                            value={em.email}
+                                                            onChange={(e) => updateAdditionalEmail(idx, 'email', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => removeAdditionalEmail(idx)}
+                                                        className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={em.notify}
+                                                            onChange={(e) => updateAdditionalEmail(idx, 'notify', e.target.checked)}
+                                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                        />
+                                                        <span className="text-[11px] font-medium text-slate-500">Recibir alertas por email</span>
+                                                    </label>
+                                                    <select 
+                                                        className="text-[10px] bg-white border border-blue-200 rounded-md px-1 py-0.5 text-slate-600 outline-none"
+                                                        onChange={(e) => {
+                                                            const contact = (formData.related_contacts as any[] || []).find(c => c.name === e.target.value);
+                                                            if (contact) {
+                                                                updateAdditionalEmail(idx, 'name', contact.name);
+                                                                updateAdditionalEmail(idx, 'email', contact.email);
+                                                            }
+                                                        }}
+                                                        value=""
+                                                    >
+                                                        <option value="" disabled>Elegir de contactos...</option>
+                                                        {(formData.related_contacts as any[] || []).map((c, i) => (
+                                                            <option key={i} value={c.name}>{c.name} ({c.relation})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        <button 
+                                            type="button" 
+                                            onClick={addAdditionalEmail}
+                                            className="w-full py-2 border border-dashed border-blue-200 rounded-xl text-blue-500 text-xs font-bold hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Plus className="w-4 h-4" /> Agregar correo adicional
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                     <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                                         <BellRing className="w-4 h-4 text-emerald-500" /> Preferencias de Envío
@@ -919,6 +1127,31 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                             checked={true}
                                         />
                                     </label>
+                                </div>
+
+                                {/* v2.5: Envío Manual */}
+                                <div className="p-5 bg-gradient-to-br from-emerald-50 to-blue-50 rounded-2xl border border-emerald-100 shadow-sm space-y-4">
+                                    <h4 className="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+                                        <MessageSquare className="w-4 h-4 text-emerald-600" /> Envío Manual
+                                    </h4>
+                                    <p className="text-[11px] text-emerald-700/70">Mande un mensaje o correo de prueba utilizando el selector de contactos para cualquiera de los medios registrados.</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button 
+                                            type="button"
+                                            onClick={handleSendWhatsAppManual}
+                                            className="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 py-2.5 rounded-xl text-xs font-bold border border-emerald-200 transition-all shadow-sm active:scale-95"
+                                        >
+                                            <MessageSquare className="w-4 h-4" /> WhatsApp
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={handleSendEmailManual}
+                                            className="flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-600 py-2.5 rounded-xl text-xs font-bold border border-blue-200 transition-all shadow-sm active:scale-95"
+                                        >
+                                            <MailIcon className="w-4 h-4" /> Email
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="p-5 border border-dashed border-slate-200 rounded-2xl space-y-2">
@@ -1098,6 +1331,116 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                     </div>
                 )}
             </form>
+
+            {/* Modal Selección de Contacto (v2.5) */}
+            {showContactSelector && selectorConfig && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                    {selectorConfig.type === 'whatsapp' ? (
+                                        <div className="p-2 bg-emerald-100 rounded-2xl text-emerald-600">
+                                            <MessageSquare className="w-6 h-6" />
+                                        </div>
+                                    ) : (
+                                        <div className="p-2 bg-blue-100 rounded-2xl text-blue-600">
+                                            <MailIcon className="w-6 h-6" />
+                                        </div>
+                                    )}
+                                    Enviar {selectorConfig.type === 'whatsapp' ? 'WhatsApp' : 'Correo'}
+                                </h3>
+                                <p className="text-slate-500 font-medium mt-1">Selecciona el destinatario de la lista</p>
+                            </div>
+                            <button 
+                                onClick={() => setShowContactSelector(false)}
+                                className="p-3 hover:bg-slate-100 rounded-full text-slate-400 transition-all active:scale-90"
+                            >
+                                <Plus className="w-6 h-6 rotate-45" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar bg-slate-50/30">
+                            {(() => {
+                                const contacts = []
+                                
+                                if (selectorConfig.type === 'whatsapp') {
+                                    if (formData.whatsapp) contacts.push({ name: `${formData.first_name} (WhatsApp)`, value: formData.whatsapp, type: 'Primario', isAlert: true })
+                                    if (formData.mobile_phone && formData.mobile_phone !== formData.whatsapp) contacts.push({ name: `${formData.first_name} (Móvil)`, value: formData.mobile_phone, type: 'Secundario' })
+                                    
+                                    // v3.0: WhatsApps Adicionales
+                                    const additional = (formData.additional_phones as any[]) || []
+                                    additional.forEach(ap => {
+                                        if (ap.phone) contacts.push({ name: ap.name || 'WhatsApp Adicional', value: ap.phone, type: 'Persistente', isAlert: ap.notify })
+                                    })
+                                } else {
+                                    if (formData.email) contacts.push({ name: `${formData.first_name} (Principal)`, value: formData.email, type: 'Primario', isAlert: true })
+                                    if (formData.secondary_email) contacts.push({ name: `${formData.first_name} (Alternativo)`, value: formData.secondary_email, type: 'Secundario' })
+
+                                    // v3.0: Correos Adicionales
+                                    const additional = (formData.additional_emails as any[]) || []
+                                    additional.forEach(ae => {
+                                        if (ae.email) contacts.push({ name: ae.name || 'Correo Adicional', value: ae.email, type: 'Persistente', isAlert: ae.notify })
+                                    })
+                                }
+
+                                const related = (formData.related_contacts as any[]) || []
+                                related.forEach(c => {
+                                    const val = selectorConfig.type === 'whatsapp' ? c.phone : c.email
+                                    if (val) contacts.push({ name: c.name, value: val, type: c.relation || 'Relacionado', isAlert: c.notify })
+                                })
+
+                                return contacts.length > 0 ? contacts.map((contact, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => {
+                                            if (selectorConfig.type === 'whatsapp') {
+                                                const link = `https://api.whatsapp.com/send?phone=${contact.value.replace(/\D/g, '')}&text=${encodeURIComponent(selectorConfig.message)}`
+                                                window.open(link, '_blank')
+                                            } else {
+                                                const link = `mailto:${contact.value}?subject=${encodeURIComponent(selectorConfig.subject || '')}&body=${encodeURIComponent(selectorConfig.message)}`
+                                                window.open(link, '_blank')
+                                            }
+                                            setShowContactSelector(false)
+                                        }}
+                                        className="w-full flex items-center justify-between p-5 mb-4 bg-white border border-slate-100 rounded-[1.5rem] hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/10 transition-all group active:scale-[0.98]"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                                                {selectorConfig.type === 'whatsapp' ? <MessageSquare className="w-6 h-6" /> : <MailIcon className="w-6 h-6" />}
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">{contact.name}</p>
+                                                <p className="text-xs text-slate-500 font-medium">{contact.value}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {contact.isAlert && (
+                                                <span className="px-2 py-0.5 bg-emerald-100 text-[9px] font-black text-emerald-700 rounded-md border border-emerald-200">ALERTA</span>
+                                            )}
+                                            <span className="px-3 py-1 bg-slate-100 text-[10px] font-black text-slate-600 rounded-full uppercase tracking-tighter">
+                                                {contact.type}
+                                            </span>
+                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-500 transition-all group-hover:translate-x-1" />
+                                        </div>
+                                    </button>
+                                )) : (
+                                    <div className="py-12 text-center">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                                            <AlertCircle className="w-8 h-8" />
+                                        </div>
+                                        <p className="text-slate-500 font-medium italic">No se encontraron {selectorConfig.type === 'whatsapp' ? 'teléfonos' : 'correos'} disponibles.</p>
+                                    </div>
+                                )
+                            })()}
+                        </div>
+                        
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-center">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest"> RB Proyectos • Sistema de Notificaciones </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, AlertCircle } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, AlertCircle, X, Mail as MailIcon, Phone, Users } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { calculateInstallments } from "@/lib/installment-engine"
@@ -45,6 +45,14 @@ export default function NewPolicyPage() {
     const [showClientSync, setShowClientSync] = useState(false)
     const [clientSearch, setClientSearch] = useState('')
     const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
+
+    const [showContactSelector, setShowContactSelector] = useState(false)
+    const [selectorConfig, setSelectorConfig] = useState<{
+        type: 'whatsapp' | 'email',
+        message: string,
+        subject?: string,
+        onSelect?: (contact: any) => void
+    } | null>(null)
 
 
     // Catalogos
@@ -559,7 +567,14 @@ export default function NewPolicyPage() {
             firstInstallmentForced: parsedFirstInstallment || undefined
         }
 
-        const newInstallments = calculateInstallments(input)
+        const newInstallments = calculateInstallments(input).map(inst => ({
+            ...inst,
+            premium_net: formatInputCurrency(inst.premium_net),
+            policy_fee: formatInputCurrency(inst.policy_fee),
+            surcharges: formatInputCurrency(inst.surcharges),
+            vat_amount: formatInputCurrency(inst.vat_amount),
+            total_amount: inst.total_amount // total_amount is handled by formatCurrency in display
+        }))
         setInstallments(newInstallments)
     }
 
@@ -603,6 +618,22 @@ export default function NewPolicyPage() {
 
         setLoading(true)
         try {
+            // --- DETECCIÓN DE DUPLICADOS (v27.1) ---
+            const { data: existingPolicy } = await supabase
+                .from('policies')
+                .select('id, policy_number, insurers(name)')
+                .eq('policy_number', formData.policy_number)
+                .eq('insurer_id', formData.insurer_id)
+                .maybeSingle()
+
+            if (existingPolicy) {
+                const insurerName = (existingPolicy as any).insurers?.name || 'la aseguradora seleccionada'
+                if (!confirm(`⚠️ ATENCIÓN: Ya existe la póliza "${formData.policy_number}" para "${insurerName}". \n\n¿Estás seguro de que quieres crear un duplicado?`)) {
+                    setLoading(false)
+                    return
+                }
+            }
+
             // Clean empty strings to null for UUID foreign keys (Phase 18 Fix)
             const payload = {
                 policy_number: formData.policy_number,
@@ -676,6 +707,7 @@ export default function NewPolicyPage() {
                 const { error: docError } = await (supabase.from('policy_documents') as any)
                     .insert({
                         policy_id: policyData.id,
+                        name: 'Carátula_Original.pdf',
                         document_type: 'Carátula',
                         file_url: policyFileUrl,
                         notes: 'Cargado automáticamente mediante IA'
@@ -773,11 +805,70 @@ export default function NewPolicyPage() {
 
                     <div className="space-y-3 pt-4">
                         <button
-                            onClick={handleSendWelcome}
+                            onClick={() => {
+                                const client = clients.find(c => c.id === formData.client_id)
+                                const insurer = insurers.find(i => i.id === formData.insurer_id)
+                                const line = lines.find(l => l.id === formData.branch_id)
+                                const msg = getWelcomeMessage(
+                                    `${client?.first_name} ${client?.last_name}`,
+                                    formData.policy_number,
+                                    insurer?.name || 'Aseguradora',
+                                    line?.name || 'Seguro',
+                                    formData.payment_method,
+                                    formData.start_date,
+                                    formData.end_date,
+                                    parseNum(formData.premium_total),
+                                    installments[0] ? parseNum(installments[0].total_amount) : 0,
+                                    installments[1] ? parseNum(installments[1].total_amount) : 0,
+                                    formData.start_date,
+                                    policyFileUrl || 'Link no disponible',
+                                    formData.currency === 'USD' ? 'USD$' : '$',
+                                    formData.description || 'Amplia'
+                                )
+                                setSelectorConfig({
+                                    type: 'whatsapp',
+                                    message: msg
+                                })
+                                setShowContactSelector(true)
+                            }}
                             className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-100 active:scale-[0.98]"
                         >
                             <MessageSquare className="w-5 h-5" />
                             MANDAR WHATSAPP DE BIENVENIDA ✨
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                const client = clients.find(c => c.id === formData.client_id)
+                                const insurer = insurers.find(i => i.id === formData.insurer_id)
+                                const line = lines.find(l => l.id === formData.branch_id)
+                                const msg = getWelcomeMessage(
+                                    `${client?.first_name} ${client?.last_name}`,
+                                    formData.policy_number,
+                                    insurer?.name || insurer?.alias || 'Aseguradora',
+                                    line?.name || 'Seguro',
+                                    formData.payment_method,
+                                    formData.start_date,
+                                    formData.end_date,
+                                    parseNum(formData.premium_total),
+                                    installments[0] ? parseNum(installments[0].total_amount) : 0,
+                                    installments[1] ? parseNum(installments[1].total_amount) : 0,
+                                    formData.start_date,
+                                    policyFileUrl || 'Link no disponible',
+                                    formData.currency === 'USD' ? 'USD$' : '$',
+                                    formData.description || 'Amplia'
+                                )
+                                setSelectorConfig({
+                                    type: 'email',
+                                    message: msg,
+                                    subject: `Bienvenida: Póliza ${formData.policy_number} - ${insurer?.alias || insurer?.name}`
+                                })
+                                setShowContactSelector(true)
+                            }}
+                            className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 py-4 rounded-2xl font-bold transition-all"
+                        >
+                            <MailIcon className="w-5 h-5" />
+                            MANDAR BIENVENIDA POR CORREO 📧
                         </button>
 
                         <Link
@@ -802,7 +893,8 @@ export default function NewPolicyPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-20">
+        <>
+            <div className="max-w-4xl mx-auto space-y-8 pb-20">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <Link href="/dashboard/policies" className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors font-medium">
@@ -1439,6 +1531,22 @@ export default function NewPolicyPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between group">
+                                                <span className="text-sm text-slate-500 font-medium">Extraprima / Cob. Adicionales</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-slate-300 font-bold">$</span>
+                                                    <input
+                                                        type="text"
+                                                        name="extra_premium"
+                                                        className="w-32 p-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                                                        placeholder="0.00"
+                                                        value={formData.extra_premium}
+                                                        onChange={handleChange}
+                                                        onBlur={handleAmountBlur}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-between group">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm text-slate-500 font-medium">Recargo Financiero</span>
                                                     <div className="flex items-center gap-1">
@@ -1504,7 +1612,7 @@ export default function NewPolicyPage() {
                                                 <div className="flex justify-between items-center text-slate-400 text-xs font-bold uppercase tracking-widest">
                                                     <span>Subtotal antes de IVA</span>
                                                     <span className="text-sm text-slate-300">
-                                                        {formData.currency} ${formatCurrency((parseNum(formData.premium_net) + parseNum(formData.policy_fee) + parseNum(formData.surcharge_amount) - parseNum(formData.discount_amount)).toFixed(2))}
+                                                        {formData.currency} ${formatCurrency((parseNum(formData.premium_net) + parseNum(formData.policy_fee) + parseNum(formData.surcharge_amount) + parseNum(formData.extra_premium) - parseNum(formData.discount_amount)).toFixed(2))}
                                                     </span>
                                                 </div>
 
@@ -1606,7 +1714,7 @@ export default function NewPolicyPage() {
                                                                     value={inst.premium_net}
                                                                     onBlur={(e) => handleInstallmentChange(idx, 'premium_net', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))}
                                                                     onChange={(e) => handleInstallmentChange(idx, 'premium_net', e.target.value)}
-                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-20 text-right"
+                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium"
                                                                 />
                                                             </td>
                                                             <td className="p-2">
@@ -1615,7 +1723,7 @@ export default function NewPolicyPage() {
                                                                     value={inst.policy_fee}
                                                                     onBlur={(e) => handleInstallmentChange(idx, 'policy_fee', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))}
                                                                     onChange={(e) => handleInstallmentChange(idx, 'policy_fee', e.target.value)}
-                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-16 text-right"
+                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium"
                                                                 />
                                                             </td>
                                                             <td className="p-2">
@@ -1624,7 +1732,7 @@ export default function NewPolicyPage() {
                                                                     value={inst.surcharges}
                                                                     onBlur={(e) => handleInstallmentChange(idx, 'surcharges', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))}
                                                                     onChange={(e) => handleInstallmentChange(idx, 'surcharges', e.target.value)}
-                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-16 text-right"
+                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium"
                                                                 />
                                                             </td>
                                                             <td className="p-2">
@@ -1633,7 +1741,7 @@ export default function NewPolicyPage() {
                                                                     value={inst.vat_amount}
                                                                     onBlur={(e) => handleInstallmentChange(idx, 'vat_amount', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))}
                                                                     onChange={(e) => handleInstallmentChange(idx, 'vat_amount', e.target.value)}
-                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-20 text-right"
+                                                                    className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium"
                                                                 />
                                                             </td>
                                                             <td className="p-3 text-right font-bold text-slate-900 bg-slate-50/30 border-l border-slate-100">
@@ -1726,5 +1834,95 @@ export default function NewPolicyPage() {
                 </div>
             </div>
         </div>
+
+        {/* Modal Selección de Contacto */}
+        {showContactSelector && selectorConfig && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
+                    <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                {selectorConfig.type === 'whatsapp' ? <MessageSquare className="w-5 h-5" /> : <MailIcon className="w-5 h-5" />}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">Seleccionar {selectorConfig.type === 'whatsapp' ? 'WhatsApp' : 'Email'}</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">¿A quién enviamos el mensaje?</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowContactSelector(false)}
+                            className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="p-4 max-h-[400px] overflow-y-auto space-y-2 bg-white">
+                        {(() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const options: any[] = []
+
+                            if (client) {
+                                if (selectorConfig.type === 'whatsapp') {
+                                    if (client.whatsapp) options.push({ label: 'WhatsApp Principal', value: client.whatsapp, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                    if (client.phone && client.phone !== client.whatsapp) options.push({ label: 'Teléfono Secundario', value: client.phone, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                } else {
+                                    if (client.email) options.push({ label: 'Email Principal', value: client.email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                    if (client.secondary_email) options.push({ label: 'Email Secundario', value: client.secondary_email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                }
+
+                                // Relaciones (Familia/Socios)
+                                if (client.related_contacts && Array.isArray(client.related_contacts)) {
+                                    client.related_contacts.forEach((rel: any) => {
+                                        if (selectorConfig.type === 'whatsapp' && rel.phone) {
+                                            options.push({ label: rel.relation || 'Relacionado', value: rel.phone, icon: <Users className="w-3 h-3" />, name: rel.name })
+                                        } else if (selectorConfig.type === 'email' && rel.email) {
+                                            options.push({ label: rel.relation || 'Relacionado', value: rel.email, icon: <Users className="w-3 h-3" />, name: rel.name })
+                                        }
+                                    })
+                                }
+                            }
+
+                            return options.length > 0 ? options.map((opt, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => {
+                                        if (selectorConfig.type === 'whatsapp') {
+                                            window.open(generateWhatsAppLink(opt.value, selectorConfig.message), '_blank')
+                                        } else {
+                                            const subject = encodeURIComponent(selectorConfig.subject || 'Notificación de Seguro')
+                                            const mailto = `mailto:${opt.value}?subject=${subject}&body=${encodeURIComponent(selectorConfig.message)}`
+                                            window.open(mailto, '_blank')
+                                        }
+                                        setShowContactSelector(false)
+                                        if (selectorConfig.onSelect) selectorConfig.onSelect(opt)
+                                    }}
+                                    className="w-full p-4 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4 transition-all hover:border-emerald-200 text-left group"
+                                >
+                                    <div className={`p-2 rounded-xl group-hover:scale-110 transition-transform ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                        <UserIcon className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-slate-900 truncate">{opt.name}</p>
+                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-full">{opt.label}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 font-medium truncate">{opt.value}</p>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <ChevronRight className="w-4 h-4 text-slate-300" />
+                                    </div>
+                                </button>
+                            )) : (
+                                <div className="p-8 text-center space-y-2">
+                                    <p className="text-slate-400 font-medium italic">No se encontraron contactos para este medio.</p>
+                                </div>
+                            )
+                        })()}
+                    </div>
+                </div>
+            </div>
+        )}
+    </>
     )
 }

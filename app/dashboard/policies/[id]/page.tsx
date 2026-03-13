@@ -2,22 +2,26 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw, Link as LinkIcon, Zap } from "lucide-react"
+import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw, Link as LinkIcon, Zap, Eye, Bell } from "lucide-react"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
-import {
-    getWelcomeMessage,
-    getPaymentCalendarMessage,
-    getSecurityTipsMessage,
-    getPreRenewalMessage,
-    getRenewedMessage,
+import { 
+    getWelcomeMessage, 
+    getPreRenewalMessage, 
+    getRenewedMessage, 
+    getBrandedViewerLink, 
+    generateWhatsAppLink, 
+    getManualMessage, 
+    getTipsMessage,
+    getReminderMessage,
     getDirectLinkMessage,
-    getBrandedViewerLink,
-    generateWhatsAppLink,
-    getManualMessage,
-    getTipsMessage
+    getCollectionMessage 
 } from "@/lib/whatsapp-templates"
-import { generatePaymentSchedulePDF, generateRecommendationsPDF } from "@/lib/pdf-generator"
+import { X, Mail as MailIcon, Phone, User as UserIcon, Users } from "lucide-react"
+import { creditsManager } from "@/lib/credits-manager"
+import { generatePolicyCalendarPDF, generateInsuranceTipsPDF, generateInsurerManualPDF } from "@/lib/pdf-generator"
+import { getInsurerConfig } from "@/lib/insurers-config"
 
 export default function EditPolicyPage({ params }: { params: any }) {
     const resolvedParams: any = use(params)
@@ -83,6 +87,14 @@ export default function EditPolicyPage({ params }: { params: any }) {
         premium_subtotal: '0',
         description: ''
     })
+
+    const [showContactSelector, setShowContactSelector] = useState(false)
+    const [selectorConfig, setSelectorConfig] = useState<{
+        type: 'whatsapp' | 'email',
+        message: string,
+        subject?: string,
+        onSelect?: (contact: any) => void
+    } | null>(null)
 
     const parseNum = (val: any) => {
         try {
@@ -247,7 +259,8 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     policy_id: policyId,
                     name: file.name,
                     file_url: publicUrl,
-                    document_type: selectedDocType || 'Otro'
+                    document_type: selectedDocType || 'Otro',
+                    notes: 'Cargado manualmente'
                 })
 
             if (dbError) throw dbError
@@ -279,7 +292,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
         }
     }
 
-    const handleGeneratePDF = async (type: 'payment' | 'recommendations') => {
+    const handleGeneratePDF = async (type: 'payment' | 'recommendations' | 'manual') => {
         if (!policyId) return
         setUploadingDoc(true)
         try {
@@ -292,15 +305,27 @@ export default function EditPolicyPage({ params }: { params: any }) {
             let docType: string
 
             if (type === 'payment') {
-                blob = await generatePaymentSchedulePDF(clientName, formData.policy_number, insurerName, installments, formData.currency)
+                blob = await generatePolicyCalendarPDF(clientName, formData.policy_number, insurerName, installments, formData.currency)
                 fileName = `Calendario_Pagos_${formData.policy_number}.pdf`
                 docType = 'Recibo'
+            } else if (type === 'manual') {
+                const insurerConfig = getInsurerConfig(formData.insurer_id)
+                if (!insurerConfig) {
+                    alert("No hay configuración de métodos de pago para esta aseguradora.")
+                    return
+                }
+                blob = await generateInsurerManualPDF(clientName, formData.policy_number, insurerName, insurerConfig)
+                fileName = `Manual_Pago_${insurerName}.pdf`
+                docType = 'Otro'
             } else {
                 const branch = lines.find(l => l.id === formData.branch_id)?.name || 'Seguro'
-                blob = await generateRecommendationsPDF(clientName, branch)
+                const insurerConfig = getInsurerConfig(formData.insurer_id)
+                blob = await generateInsuranceTipsPDF(clientName, branch, insurerConfig?.recommendations || [])
                 fileName = `Recomendaciones_${branch}.pdf`
                 docType = 'Otro'
             }
+            
+            if (!blob) return
 
             const uploadPath = `automated/${Date.now()}_${fileName}`
             const { error: uploadError } = await supabase.storage
@@ -319,7 +344,8 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     policy_id: policyId,
                     name: fileName,
                     file_url: publicUrl,
-                    document_type: docType
+                    document_type: docType,
+                    notes: 'Generado automáticamente'
                 })
 
             if (dbError) throw dbError
@@ -343,8 +369,9 @@ export default function EditPolicyPage({ params }: { params: any }) {
         let nextStep = sequenceStep + 1
 
         if (sequenceStep === 1) { // Send Caratula
-            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
-            const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula')
+            const caratula = documents.find(d => d.document_type === 'Carátula') || documents[0]
+            const rawLink = caratula?.file_url || 'Link_no_disponible'
+            const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula', caratula?.id)
             msg = getDirectLinkMessage(clientName, brandedLink)
             
             // Evaluar si saltar al siguiente (si no hay calendario o es pago unico)
@@ -354,7 +381,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
         else if (sequenceStep === 2) { // Send Calendar
             const calDoc = documents.find(d => d.name.includes("Calendario"))
             if (calDoc) {
-                const brandedLink = getBrandedViewerLink(calDoc.file_url, clientName, 'Calendario de Pagos')
+                const brandedLink = getBrandedViewerLink(calDoc.file_url, clientName, 'Calendario de Pagos', calDoc.id)
                 msg = getDirectLinkMessage(clientName, brandedLink)
             } else {
                 nextStep = 4 // Saltar a manual si no hay calendario
@@ -378,6 +405,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
 
         if (msg) {
             window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+            
+            // Consumo de Créditos (0.2 por WhatsApp en secuencia)
+            if (formData.agency_id) {
+                creditsManager.consume('whatsapp_notification', '', formData.agency_id).then(success => {
+                    if (success) console.log("Crédito descontado (0.2)")
+                })
+            }
         }
         
         // Si el siguiente paso no tiene contenido, intentar avanzar recursivamente
@@ -486,24 +520,29 @@ export default function EditPolicyPage({ params }: { params: any }) {
     const generateInstallments = (count: number) => {
         const netTotal = parseNum(formData.premium_net) || 0
         const feeTotal = parseNum(formData.policy_fee) || 0
-        const surchPct = parseNum(formData.surcharge_percentage) || 0
         const taxPct = parseNum(formData.tax_percentage) || 16
 
-        const surchTotal = parseNum(formData.surcharge_amount) || 0
-        const vatTotal = parseNum(formData.vat_amount) || 0
+        // v34: Obtener configuración de la aseguradora para aplicar recargos reales
+        const insurerConfig = getInsurerConfig(formData.insurer_id)
+        let surchargePercentage = 0
+        
+        if (count === 2) surchargePercentage = insurerConfig?.fractionalRates?.semestral || 6.5
+        else if (count === 4) surchargePercentage = insurerConfig?.fractionalRates?.trimestral || 8.5
+        else if (count === 12) surchargePercentage = insurerConfig?.fractionalRates?.mensual || 11.5
+
+        const CalculatedSurchargeTotal = count > 1 ? netTotal * (surchargePercentage / 100) : 0
+        const vatTotal = (netTotal + feeTotal + CalculatedSurchargeTotal) * (taxPct / 100)
 
         const newInstallments = []
         const startDate = new Date(formData.start_date || new Date())
 
         for (let i = 1; i <= count; i++) {
-            // Dividir montos (simétrico por defecto)
             const net = netTotal / count
-            const surch = surchTotal / count
-            const fee = i === 1 ? feeTotal : 0 // El derecho suele cobrarse en el 1er recibo
-            const vat = vatTotal / count
+            const surch = CalculatedSurchargeTotal / count
+            const fee = i === 1 ? feeTotal : 0 
+            const vat = (net + surch + fee) * (taxPct / 100)
             const total = net + surch + fee + vat
 
-            // Calcular fechas (cada 12/count meses)
             const dueDate = new Date(startDate)
             dueDate.setMonth(startDate.getMonth() + (i - 1) * (12 / count))
 
@@ -518,6 +557,16 @@ export default function EditPolicyPage({ params }: { params: any }) {
                 status: 'Pendiente'
             })
         }
+        
+        // Actualizar el formulario con los nuevos totales calculados (v34)
+        setFormData((prev: any) => ({
+            ...prev,
+            surcharge_percentage: surchargePercentage.toString(),
+            surcharge_amount: CalculatedSurchargeTotal.toFixed(2),
+            vat_amount: vatTotal.toFixed(2),
+            premium_total: (netTotal + feeTotal + CalculatedSurchargeTotal + vatTotal).toFixed(2)
+        }))
+        
         setInstallments(newInstallments)
     }
 
@@ -681,7 +730,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                         name="premium_net"
                                         className="w-32 p-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
                                         placeholder="0.00"
-                                        value={formData.premium_net}
+                                        value={formatInputCurrency(formData.premium_net)}
                                         onChange={handleChange}
                                         onBlur={handleAmountBlur}
                                     />
@@ -696,7 +745,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                         type="text"
                                         name="policy_fee"
                                         className="w-32 p-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                                        value={formData.policy_fee}
+                                        value={formatInputCurrency(formData.policy_fee)}
                                         onChange={handleChange}
                                         onBlur={handleAmountBlur}
                                     />
@@ -723,7 +772,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                     <input
                                         type="text"
                                         name="surcharge_amount"
-                                        value={formData.surcharge_amount}
+                                        value={formatInputCurrency(formData.surcharge_amount)}
                                         onChange={handleChange}
                                         onBlur={handleAmountBlur}
                                         className="w-24 font-bold text-emerald-600 text-sm bg-transparent border-b border-transparent hover:border-slate-200 focus:border-emerald-500 outline-none text-right"
@@ -751,7 +800,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                     <input
                                         type="text"
                                         name="discount_amount"
-                                        value={formData.discount_amount}
+                                        value={formatInputCurrency(formData.discount_amount)}
                                         onChange={handleChange}
                                         onBlur={handleAmountBlur}
                                         className="w-24 font-bold text-rose-500 text-sm bg-transparent border-b border-transparent hover:border-slate-200 focus:border-rose-500 outline-none text-right"
@@ -790,7 +839,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                         <input
                                             type="text"
                                             name="vat_amount"
-                                            value={formData.vat_amount}
+                                            value={formatInputCurrency(formData.vat_amount)}
                                             onChange={handleChange}
                                             onBlur={handleAmountBlur}
                                             className="w-24 bg-transparent border-b border-transparent hover:border-slate-600 outline-none focus:border-emerald-400 text-right font-bold text-emerald-400 text-lg"
@@ -866,16 +915,16 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                                 />
                                             </td>
                                             <td className="p-2">
-                                                <input type="text" value={inst.premium_net} onBlur={(e) => handleInstallmentChange(idx, 'premium_net', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'premium_net', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-20 text-right" />
+                                                <input type="text" value={inst.premium_net} onBlur={(e) => handleInstallmentChange(idx, 'premium_net', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'premium_net', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium" />
                                             </td>
                                             <td className="p-2">
-                                                <input type="text" value={inst.policy_fee} onBlur={(e) => handleInstallmentChange(idx, 'policy_fee', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'policy_fee', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-16 text-right" />
+                                                <input type="text" value={inst.policy_fee} onBlur={(e) => handleInstallmentChange(idx, 'policy_fee', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'policy_fee', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium" />
                                             </td>
                                             <td className="p-2">
-                                                <input type="text" value={inst.surcharges} onBlur={(e) => handleInstallmentChange(idx, 'surcharges', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'surcharges', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-16 text-right" />
+                                                <input type="text" value={inst.surcharges} onBlur={(e) => handleInstallmentChange(idx, 'surcharges', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'surcharges', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium" />
                                             </td>
                                             <td className="p-2">
-                                                <input type="text" value={inst.vat_amount} onBlur={(e) => handleInstallmentChange(idx, 'vat_amount', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'vat_amount', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-20 text-right" />
+                                                <input type="text" value={inst.vat_amount} onBlur={(e) => handleInstallmentChange(idx, 'vat_amount', formatInputCurrency(String(e.target.value || '').replace(/,/g, '')))} onChange={(e) => handleInstallmentChange(idx, 'vat_amount', e.target.value)} className="bg-transparent border-none focus:ring-0 p-1 w-24 text-right font-medium" />
                                             </td>
                                             <td className="p-3 text-right font-bold text-slate-900 bg-slate-50/30">
                                                 ${formatCurrency(inst.total_amount)}
@@ -892,7 +941,8 @@ export default function EditPolicyPage({ params }: { params: any }) {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-20">
+        <>
+            <div className="max-w-4xl mx-auto space-y-8 pb-20">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <Link href="/dashboard/policies" className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors font-medium">
@@ -900,7 +950,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     Volver a Pólizas
                 </Link>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.21:70</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.22:15</span>
                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">Editando Póliza</span>
                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 </div>
@@ -944,11 +994,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
+                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const line = lines.find(l => l.id === formData.branch_id)
                             const msg = getWelcomeMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
-                                insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora',
-                                lines.find(l => l.id === formData.branch_id)?.name || 'Seguro',
+                                insurer?.name || 'Aseguradora',
+                                line?.name || 'Seguro',
                                 formData.payment_method,
                                 formData.start_date,
                                 formData.end_date,
@@ -960,12 +1012,59 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
-                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                            
+                            setSelectorConfig({
+                                type: 'whatsapp',
+                                message: msg
+                            })
+                            setShowContactSelector(true)
+
+                            // Consumo de Créditos (0.2 por WhatsApp)
+                            if (formData.agency_id) {
+                                creditsManager.consume('whatsapp_notification', '', formData.agency_id).then(success => {
+                                    if (success) console.log("Crédito descontado (0.2)")
+                                })
+                            }
+
                             setSequenceStep(1)
                         }}
                         className={`text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sequenceStep > 0 ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-black'}`}
                     >
                         {sequenceStep > 0 ? 'ENVIANDO SECUENCIA... ⏳' : 'BIENVENIDA ✨'}
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const line = lines.find(l => l.id === formData.branch_id)
+                            const msg = getWelcomeMessage(
+                                `${client?.first_name} ${client?.last_name}`,
+                                formData.policy_number,
+                                insurer?.name || 'Aseguradora',
+                                line?.name || 'Seguro',
+                                formData.payment_method,
+                                formData.start_date,
+                                formData.end_date,
+                                parseNum(formData.premium_total),
+                                installments[0] ? parseNum(installments[0].total_amount) : 0,
+                                installments[1] ? parseNum(installments[1].total_amount) : 0,
+                                formData.start_date,
+                                'Link_en_siguiente_msj',
+                                formData.currency === 'USD' ? 'USD$' : '$',
+                                formData.description || 'Amplia'
+                            )
+                            
+                            setSelectorConfig({
+                                type: 'email',
+                                message: msg,
+                                subject: `Bienvenida: Póliza ${formData.policy_number} - ${insurer?.alias || insurer?.name}`
+                            })
+                            setShowContactSelector(true)
+                        }}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                        <MailIcon className="w-3.5 h-3.5" /> EMAIL 📧
                     </button>
 
                     {sequenceStep > 0 && (
@@ -1005,7 +1104,11 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                     formData.end_date,
                                     parseNum(formData.premium_total)
                                 )
-                                window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                                setSelectorConfig({
+                                    type: 'whatsapp',
+                                    message: msg
+                                })
+                                setShowContactSelector(true)
                             }}
                             className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm"
                         >
@@ -1016,11 +1119,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     <button
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
+                            const insurer = insurers.find(i => i.id === formData.insurer_id)
+                            const line = lines.find(l => l.id === formData.branch_id)
                             const msg = getRenewedMessage(
                                 `${client?.first_name} ${client?.last_name}`,
                                 formData.policy_number,
-                                insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora',
-                                lines.find(l => l.id === formData.branch_id)?.name || 'Seguro',
+                                insurer?.name || 'Aseguradora',
+                                line?.name || 'Seguro',
                                 formData.payment_method,
                                 formData.start_date,
                                 formData.end_date,
@@ -1032,7 +1137,11 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 formData.currency === 'USD' ? 'USD$' : '$',
                                 formData.description || 'Amplia'
                             )
-                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                            setSelectorConfig({
+                                type: 'whatsapp',
+                                message: msg
+                            })
+                            setShowContactSelector(true)
                             setSequenceStep(1)
                         }}
                         className={`text-[10px] font-bold px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm ${sequenceStep > 0 ? 'bg-orange-600 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}
@@ -1044,14 +1153,19 @@ export default function EditPolicyPage({ params }: { params: any }) {
                         onClick={() => {
                             const client = clients.find(c => c.id === formData.client_id)
                             const clientName = `${client?.first_name} ${client?.last_name}`
-                            const rawLink = documents.find(d => d.document_type === 'Carátula')?.file_url || documents[0]?.file_url || 'Link_no_disponible'
-                            const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula')
+                            const caratula = documents.find(d => d.document_type === 'Carátula') || documents[0]
+                            const rawLink = caratula?.file_url || 'Link_no_disponible'
+                            const brandedLink = getBrandedViewerLink(rawLink, clientName, 'Carátula', caratula?.id)
 
                             const msg = getDirectLinkMessage(
                                 clientName,
                                 brandedLink
                             )
-                            window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                            setSelectorConfig({
+                                type: 'whatsapp',
+                                message: msg
+                            })
+                            setShowContactSelector(true)
                         }}
                         className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm border border-emerald-100"
                     >
@@ -1180,6 +1294,13 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                     >
                                         Guía de Seguridad PDF 🛡️
                                     </button>
+                                    <button 
+                                        onClick={() => handleGeneratePDF('manual')}
+                                        disabled={uploadingDoc}
+                                        className="text-[10px] font-black px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
+                                    >
+                                        Manual Branded 🏢
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1199,30 +1320,67 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 {documents.map((doc) => (
                                     <div key={doc.id} className="group p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex items-center justify-between">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                                            <div className={cn(
+                                                "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
+                                                doc.view_count > 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400"
+                                            )}>
                                                 <FileText className="w-6 h-6" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-slate-900">{doc.document_type}</p>
-                                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{doc.notes || 'Sin descripción'}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-slate-900">{doc.document_type}</p>
+                                                    {doc.view_count > 0 ? (
+                                                        <span className="bg-emerald-100 text-emerald-700 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Lído</span>
+                                                    ) : (
+                                                        <span className="bg-slate-100 text-slate-500 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Sin Abrir</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                                    <span>{doc.notes || 'Documento Digital'}</span>
+                                                    {doc.view_count > 0 && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="text-emerald-500 flex items-center gap-1">
+                                                                <Eye className="w-3 h-3" /> {doc.view_count} vistas
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <a
-                                                href={doc.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                            >
-                                                Ver
-                                            </a>
-                                            <button
-                                                onClick={() => handleDeleteDoc(doc.id)}
-                                                className="px-3 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                            >
-                                                Eliminar
-                                            </button>
+                                        <div className="flex items-center gap-3">
+                                            {doc.view_count === 0 && (
+                                                <button
+                                                    onClick={() => {
+                                                        const client = clients.find(c => c.id === formData.client_id)
+                                                        const clientName = `${client?.first_name} ${client?.last_name}`
+                                                        const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id)
+                                                        const msg = getReminderMessage(clientName, doc.document_type, brandedLink)
+                                                        window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
+                                                    }}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-100 transition-all"
+                                                >
+                                                    <Bell className="w-3.5 h-3.5" /> RE-ENVIAR 🔔
+                                                </button>
+                                            )}
+                                            
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <a
+                                                    href={doc.file_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                                                >
+                                                    Ver Original
+                                                </a>
+                                                <button
+                                                    onClick={() => handleDeleteDoc(doc.id)}
+                                                    className="px-3 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -1247,5 +1405,95 @@ export default function EditPolicyPage({ params }: { params: any }) {
                 </div>
             </div>
         </div>
+
+        {/* Modal Selección de Contacto */}
+        {showContactSelector && selectorConfig && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
+                    <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                                {selectorConfig.type === 'whatsapp' ? <MessageSquare className="w-5 h-5" /> : <MailIcon className="w-5 h-5" />}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">Seleccionar {selectorConfig.type === 'whatsapp' ? 'WhatsApp' : 'Email'}</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">¿A quién enviamos el mensaje?</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowContactSelector(false)}
+                            className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="p-4 max-h-[400px] overflow-y-auto space-y-2 bg-white">
+                        {(() => {
+                            const client = clients.find(c => c.id === formData.client_id)
+                            const options: any[] = []
+
+                            if (client) {
+                                if (selectorConfig.type === 'whatsapp') {
+                                    if (client.whatsapp) options.push({ label: 'WhatsApp Principal', value: client.whatsapp, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                    if (client.phone && client.phone !== client.whatsapp) options.push({ label: 'Teléfono Secundario', value: client.phone, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                } else {
+                                    if (client.email) options.push({ label: 'Email Principal', value: client.email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                    if (client.secondary_email) options.push({ label: 'Email Secundario', value: client.secondary_email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                }
+
+                                // Relaciones (Familia/Socios)
+                                if (client.related_contacts && Array.isArray(client.related_contacts)) {
+                                    client.related_contacts.forEach((rel: any) => {
+                                        if (selectorConfig.type === 'whatsapp' && rel.phone) {
+                                            options.push({ label: rel.relation || 'Relacionado', value: rel.phone, icon: <Users className="w-3 h-3" />, name: rel.name })
+                                        } else if (selectorConfig.type === 'email' && rel.email) {
+                                            options.push({ label: rel.relation || 'Relacionado', value: rel.email, icon: <Users className="w-3 h-3" />, name: rel.name })
+                                        }
+                                    })
+                                }
+                            }
+
+                            return options.length > 0 ? options.map((opt, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => {
+                                        if (selectorConfig.type === 'whatsapp') {
+                                            window.open(generateWhatsAppLink(opt.value, selectorConfig.message), '_blank')
+                                        } else {
+                                            const subject = encodeURIComponent(selectorConfig.subject || 'Notificación de Seguro')
+                                            const mailto = `mailto:${opt.value}?subject=${subject}&body=${encodeURIComponent(selectorConfig.message)}`
+                                            window.open(mailto, '_blank')
+                                        }
+                                        setShowContactSelector(false)
+                                        if (selectorConfig.onSelect) selectorConfig.onSelect(opt)
+                                    }}
+                                    className="w-full p-4 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4 transition-all hover:border-emerald-200 text-left group"
+                                >
+                                    <div className={`p-2 rounded-xl group-hover:scale-110 transition-transform ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                        <UserIcon className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-slate-900 truncate">{opt.name}</p>
+                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-full">{opt.label}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 font-medium truncate">{opt.value}</p>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <ChevronRight className="w-4 h-4 text-slate-300" />
+                                    </div>
+                                </button>
+                            )) : (
+                                <div className="p-8 text-center space-y-2">
+                                    <p className="text-slate-400 font-medium italic">No se encontraron contactos para este medio.</p>
+                                </div>
+                            )
+                        })()}
+                    </div>
+                </div>
+            </div>
+        )}
+    </>
     )
 }
