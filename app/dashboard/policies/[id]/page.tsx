@@ -22,6 +22,8 @@ import { X, Mail as MailIcon, Phone, User as UserIcon, Users } from "lucide-reac
 import { creditsManager } from "@/lib/credits-manager"
 import { generatePolicyCalendarPDF, generateInsuranceTipsPDF, generateInsurerManualPDF } from "@/lib/pdf-generator"
 import { getInsurerConfig } from "@/lib/insurers-config"
+import { classifyFile, processFileList, ClassifiedFile } from "@/lib/policy-processor"
+import { Trash2 } from "lucide-react"
 
 export default function EditPolicyPage({ params }: { params: any }) {
     const resolvedParams: any = use(params)
@@ -40,6 +42,10 @@ export default function EditPolicyPage({ params }: { params: any }) {
     const [deletePhrase, setDeletePhrase] = useState("")
     const [isDeleting, setIsDeleting] = useState(false)
     const [sequenceStep, setSequenceStep] = useState(0) // 0: None, 1: Summary, 2: Caratula, 3: Calendar, 4: Manual, 5: Tips
+    
+    // v36: Intelligent Document processing
+    const [stagedFiles, setStagedFiles] = useState<ClassifiedFile[]>([])
+    const [isProcessingStaged, setIsProcessingStaged] = useState(false)
 
     // Manuales de Pago por Aseguradora
     const insurerManuals: Record<string, string> = {
@@ -237,6 +243,80 @@ export default function EditPolicyPage({ params }: { params: any }) {
             .eq('policy_id', policyId)
             .order('created_at', { ascending: false })
         setDocuments(data || [])
+    }
+
+    // v36: Intelligent Batch Processing
+    const handleSmartUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || [])
+        if (files.length === 0) return
+
+        const config = getInsurerConfig(formData.insurer_id)
+        if (!config) {
+            alert("No se encontró configuración para esta aseguradora. Se usará clasificación básica.")
+        }
+
+        const classified = files.map(file => {
+            const result = classifyFile(file.name, config || { id: 'basic', name: 'Basic', installmentRule: 'standard', paymentMethods: [] })
+            return {
+                ...result,
+                file // Store the actual file object for later upload
+            } as any
+        })
+
+        setStagedFiles(classified)
+    }
+
+    const handleBatchUploadConfirm = async () => {
+        if (!policyId || stagedFiles.length === 0) return
+        
+        setIsProcessingStaged(true)
+        try {
+            for (const staged of stagedFiles) {
+                const file = (staged as any).file
+                const fileExt = file.name.split('.').pop()
+                const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
+                const filePath = `policy_docs/${policyId}/${fileName}`
+
+                const { error: uploadError } = await supabase.storage
+                    .from('client_docs')
+                    .upload(filePath, file)
+
+                if (uploadError) throw uploadError
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('client_docs')
+                    .getPublicUrl(filePath)
+
+                // Extraer tipo legible
+                const typeMap: any = {
+                    'poliza': 'Carátula',
+                    'recibos': 'Recibo',
+                    'anexos': 'Anexo / Endoso',
+                    'bienvenida': 'Bienvenida',
+                    'rc_eua': 'RC EUA',
+                    'acuse': 'Acuse'
+                }
+
+                await (supabase.from('policy_documents') as any).insert({
+                    policy_id: policyId,
+                    name: file.name,
+                    file_url: publicUrl,
+                    document_type: typeMap[staged.category] || 'Otro',
+                    installment_id: staged.installmentNumber ? 
+                        installments.find(i => i.installment_number === staged.installmentNumber)?.id : null,
+                    notes: 'Cargado vía Inteligencia Documental'
+                })
+            }
+
+            setStagedFiles([])
+            fetchDocuments()
+            alert(`Se procesaron ${stagedFiles.length} archivos correctamente.`)
+        } catch (err: any) {
+            console.error("Batch upload error:", err)
+            alert("Error al procesar lote: " + err.message)
+        } finally {
+            setIsProcessingStaged(false)
+        }
     }
 
     const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

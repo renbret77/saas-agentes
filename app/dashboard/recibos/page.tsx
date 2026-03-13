@@ -12,6 +12,7 @@ import {
     CheckCircle2,
     Clock,
     CreditCard,
+    FileText,
     TrendingUp,
     ChevronRight,
     ArrowUpRight
@@ -54,6 +55,11 @@ export default function RecibosPage() {
                         clients (first_name, last_name, phone, whatsapp),
                         insurers (alias, name),
                         insurance_lines (name)
+                    ),
+                    policy_documents (
+                        id,
+                        file_url,
+                        document_type
                     )
                 `)
                 .order('due_date', { ascending: true })
@@ -117,7 +123,8 @@ export default function RecibosPage() {
             insuranceLine: inst.policies?.insurance_lines?.name,
             paymentMethod: inst.policies?.payment_method,
             subBranch: inst.policies?.sub_branch,
-            insurerId: inst.policies?.insurer_id
+            insurerId: inst.policies?.insurer_id,
+            documentUrl: inst.policy_documents?.[0]?.file_url // v36: Link al recibo específico
         }
     })
 
@@ -144,12 +151,16 @@ export default function RecibosPage() {
             insurer: p.insurers?.alias || p.insurers?.name,
             amount: p.premium_total,
             dueDate: p.end_date,
+            status: 'Próxima',
+            installmentNumber: 0,
+            totalInstallments: 0,
             diffDays,
             isOverdue: diffDays < 0,
             insuranceLine: p.insurance_lines?.name,
             paymentMethod: p.payment_method,
             subBranch: p.sub_branch,
-            insurerId: p.insurer_id
+            insurerId: p.insurer_id,
+            documentUrl: null
         }
     })
 
@@ -194,7 +205,8 @@ export default function RecibosPage() {
                 item.installmentNumber,
                 item.totalInstallments || 1,
                 graceDays,
-                item.subBranch
+                item.subBranch,
+                item.documentUrl // v36: Pasar el link del recibo si existe
             )
         }
 
@@ -348,13 +360,25 @@ export default function RecibosPage() {
                                         <td className="px-8 py-5">
                                             <span className="text-sm font-black text-slate-900">${Number(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                                         </td>
-                                        <td className="px-8 py-5">
-                                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase shadow-sm border
-                                                ${item.status === 'Pagado' 
-                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                                                    : item.isOverdue ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
-                                                {item.status || (item.type === 'renewal' ? 'Próxima' : 'Pendiente')}
-                                            </span>
+                                         <td className="px-8 py-5">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase shadow-sm border
+                                                    ${item.status === 'Pagado' 
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                                                        : item.isOverdue ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                                                    {item.status || (item.type === 'renewal' ? 'Próxima' : 'Pendiente')}
+                                                </span>
+                                                {item.documentUrl && (
+                                                    <div className="p-1 px-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[8px] font-black uppercase flex items-center gap-1 animate-pulse" title="Recibo PDF disponible">
+                                                        <FileText className="w-2.5 h-2.5" /> PDF
+                                                    </div>
+                                                )}
+                                                {!item.documentUrl && item.type === 'installment' && !item.isOverdue && item.diffDays <= 5 && (
+                                                    <div className="p-1 px-1.5 bg-amber-50 text-amber-600 border border-amber-100 rounded text-[8px] font-black uppercase flex items-center gap-1" title="Falta subir recibo">
+                                                        <AlertCircle className="w-2.5 h-2.5" /> FALTÓ
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             <button 

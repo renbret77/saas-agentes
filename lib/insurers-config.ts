@@ -23,6 +23,10 @@ export interface InsurerConfig {
     };
     logoUrl?: string;
     manualExtraNotes?: string[];
+    docClassificationRules?: {
+        prefixes: Record<string, string[]>;
+        zipPattern?: string; // Regex para extraer p. ej. número de póliza del nombre del ZIP
+    };
 }
 
 export const INSURERS_CONFIG: Record<string, InsurerConfig> = {
@@ -75,7 +79,18 @@ export const INSURERS_CONFIG: Record<string, InsurerConfig> = {
             trimestral: 8.5,
             mensual: 11.5
         },
-        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e3/Qualitas_Logo.png'
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e3/Qualitas_Logo.png',
+        docClassificationRules: {
+            zipPattern: 'Documentos57979-04(\\d{10})',
+            prefixes: {
+                'bienvenida': ['carta de bienvenida', 'bienvenida'],
+                'poliza': ['poliza', 'póliza'],
+                'acuse': ['acuse', 'acuse poliza', 'acuse póliza'],
+                'anexos': ['anexo', 'anexos'],
+                'rc_eua': ['rc eua', 'rc usa', 'rc eeuu', 'rc e.u.a', 'rc e.u.a.'],
+                'recibos': ['recibo', 'recibos']
+            }
+        }
     },
     // Chubb - ID Real detectado en DB
     '5d90964d-982f-4b64-9c0a-264f7f8156b4': {

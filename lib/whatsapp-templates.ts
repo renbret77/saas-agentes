@@ -117,7 +117,8 @@ export const getCollectionMessage = (
     totalInstallments: number = 1,
     graceDays: number = 0,
     subBranch?: string,
-    currencySymbol: string = '$'
+    currencySymbol: string = '$',
+    receiptUrl?: string // v36: Link opcional al recibo PDF
 ) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -158,6 +159,13 @@ export const getCollectionMessage = (
         contextMessage = `Hola *${clientName}*, te escribimos para recordarte que tu pago está próximo a vencer. ¡Mantén tu tranquilidad siempre activa! ${eRocket}`
     }
 
+    // v36: Inclusión de recibo si existe
+    let receiptBlock = ''
+    if (receiptUrl) {
+        const brandedLink = getBrandedViewerLink(receiptUrl, clientName, `Recibo ${installmentNumber}`)
+        receiptBlock = `\n${eMemo} *TU RECIBO OFICIAL:* \n${brandedLink}\n`
+    }
+
     const message = [
         `${alertIcon} *${mainAction}* ${alertIcon}`,
         '',
@@ -174,6 +182,7 @@ export const getCollectionMessage = (
         `${eCalendar} *Vencimiento:* *${formatDate(targetDate)}*`,
         `${eDollar} *MONTO A PAGAR: ${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*`,
         urgencyNote,
+        receiptBlock,
         '',
         `¿Deseas que te enviemos la línea de captura o el link de pago express? ${eSmile}`,
         '',
