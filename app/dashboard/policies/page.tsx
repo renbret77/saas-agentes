@@ -539,14 +539,14 @@ export default function PoliciesPage() {
                                                                         const filePath = `${policy.client_id}/${fileName}`;
                                                                         
                                                                         const { data: uploadData, error: uploadError } = await supabase.storage
-                                                                            .from('policy-documents')
+                                                                            .from('client_docs')
                                                                             .upload(filePath, pdfBlob);
 
                                                                         if (uploadError) throw uploadError;
 
                                                                         // 3. Obtener URL Pública
                                                                         const { data: { publicUrl } } = supabase.storage
-                                                                            .from('policy-documents')
+                                                                            .from('client_docs')
                                                                             .getPublicUrl(filePath);
 
                                                                         // 4. Registrar en DB (Carpeta del cliente)
@@ -554,8 +554,10 @@ export default function PoliciesPage() {
                                                                             .from('policy_documents')
                                                                             .insert({
                                                                                 policy_id: policy.id,
+                                                                                name: `Calendario de Pagos - ${policy.policy_number}`,
                                                                                 document_type: 'Calendario de Pagos',
-                                                                                file_url: publicUrl
+                                                                                file_url: publicUrl,
+                                                                                notes: 'Generado automáticamente'
                                                                             });
 
                                                                         if (dbError) throw dbError;
