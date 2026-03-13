@@ -6,7 +6,8 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
 import { getInsurerConfig } from "@/lib/insurers-config"
-import { getCollectionMessage, getWelcomeMessage, getPreRenewalMessage, getRenewedMessage, getDirectLinkMessage, generateWhatsAppLink } from "@/lib/whatsapp-templates"
+import { getCollectionMessage, getWelcomeMessage, getPreRenewalMessage, getRenewedMessage, getDirectLinkMessage, getPaymentCalendarMessage, getBrandedViewerLink, generateWhatsAppLink } from "@/lib/whatsapp-templates"
+import { generatePolicyCalendarPDF } from "@/lib/pdf-generator"
 
 type Policy = Database['public']['Tables']['policies']['Row'] & {
     clients: { first_name: string, last_name: string },
@@ -29,6 +30,7 @@ export default function PoliciesPage() {
         subject?: string,
         clientData: any
     } | null>(null)
+    const [generatingPDF, setGeneratingPDF] = useState<string | null>(null) // v34: ID de la póliza en proceso
 
     const formatCurrency = (val: any) => {
         try {
@@ -513,31 +515,85 @@ export default function PoliciesPage() {
                                                                 <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> Bienvenida & Carátula
                                                             </button>
 
-                                                            {/* Botón: Calendario de Pagos (v34) */}
+                                                            {/* Botón: Calendario de Pagos (v34 - Con PDF y Upload) */}
                                                             <button
-                                                                onClick={(e) => {
+                                                                disabled={generatingPDF === policy.id}
+                                                                onClick={async (e) => {
                                                                     e.stopPropagation();
-                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                    const installments = policy.policy_installments || [];
-                                                                    
-                                                                    const msg = getPaymentCalendarMessage(
-                                                                        clientName,
-                                                                        policy.policy_number,
-                                                                        installments,
-                                                                        policy.currency === 'USD' ? 'USD$' : '$'
-                                                                    );
+                                                                    try {
+                                                                        setGeneratingPDF(policy.id);
+                                                                        const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                        const installments = policy.policy_installments || [];
+                                                                        
+                                                                        // 1. Generar PDF Blob
+                                                                        const pdfBlob = generatePolicyCalendarPDF(
+                                                                            clientName,
+                                                                            policy.policy_number,
+                                                                            policy.insurers?.alias || policy.insurers?.name,
+                                                                            installments,
+                                                                            policy.currency || 'MXN'
+                                                                        );
 
-                                                                    setSelectorConfig({
-                                                                        type: 'whatsapp',
-                                                                        message: msg,
-                                                                        clientData: policy.clients
-                                                                    });
-                                                                    setShowContactSelector(true);
+                                                                        // 2. Subir a Supabase Storage
+                                                                        const fileName = `calendario_${policy.policy_number}_${Date.now()}.pdf`;
+                                                                        const filePath = `${policy.client_id}/${fileName}`;
+                                                                        
+                                                                        const { data: uploadData, error: uploadError } = await supabase.storage
+                                                                            .from('policy-documents')
+                                                                            .upload(filePath, pdfBlob);
+
+                                                                        if (uploadError) throw uploadError;
+
+                                                                        // 3. Obtener URL Pública
+                                                                        const { data: { publicUrl } } = supabase.storage
+                                                                            .from('policy-documents')
+                                                                            .getPublicUrl(filePath);
+
+                                                                        // 4. Registrar en DB (Carpeta del cliente)
+                                                                        const { error: dbError } = await supabase
+                                                                            .from('policy_documents')
+                                                                            .insert({
+                                                                                policy_id: policy.id,
+                                                                                document_type: 'Calendario de Pagos',
+                                                                                file_url: publicUrl
+                                                                            });
+
+                                                                        if (dbError) throw dbError;
+
+                                                                        // 5. Preparar Mensaje con Link Branded
+                                                                        const brandedLink = getBrandedViewerLink(publicUrl, clientName, 'Calendario de Pagos', policy.id);
+                                                                        
+                                                                        const msg = [
+                                                                            getPaymentCalendarMessage(
+                                                                                clientName,
+                                                                                policy.policy_number,
+                                                                                installments,
+                                                                                policy.currency === 'USD' ? 'USD$' : '$'
+                                                                            ),
+                                                                            '',
+                                                                            `*TU DOCUMENTO DIGITAL:*`,
+                                                                            brandedLink
+                                                                        ].join('\n');
+
+                                                                        setSelectorConfig({
+                                                                            type: 'whatsapp',
+                                                                            message: msg,
+                                                                            clientData: policy.clients
+                                                                        });
+                                                                        setShowContactSelector(true);
+                                                                        fetchPolicies(); // Recargar para que aparezca en la lista de docs
+                                                                    } catch (err: any) {
+                                                                        console.error("Error generating/uploading PDF:", err);
+                                                                        alert("Error al generar el calendario: " + err.message);
+                                                                    } finally {
+                                                                        setGeneratingPDF(null);
+                                                                    }
                                                                 }}
-                                                                className="px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-50 transition-all shadow-sm active:scale-95"
-                                                                title="Enviar desglose de recibos y fechas"
+                                                                className={`px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-50 transition-all shadow-sm active:scale-95 ${generatingPDF === policy.id ? 'opacity-50 cursor-wait' : ''}`}
+                                                                title="Generar PDF y enviar desglose de recibos"
                                                             >
-                                                                <Calendar className="w-3.5 h-3.5" /> Calendario de Pagos
+                                                                <Calendar className={`w-3.5 h-3.5 ${generatingPDF === policy.id ? 'animate-bounce' : ''}`} /> 
+                                                                {generatingPDF === policy.id ? 'Generando...' : 'Calendario de Pagos'}
                                                             </button>
 
                                                             {/* Botón: Pre-Renovación (Recordatorio 30 días) */}
