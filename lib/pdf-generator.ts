@@ -1,12 +1,5 @@
 import { jsPDF } from "jspdf"
-import "jspdf-autotable"
-
-// Extender tipos para jspdf-autotable
-declare module "jspdf" {
-    interface jsPDF {
-        autoTable: (options: any) => jsPDF
-    }
-}
+import autoTable from "jspdf-autotable"
 
 interface PaymentInstallment {
     installment_number: number
@@ -59,7 +52,7 @@ export const generatePolicyCalendarPDF = (
         inst.status === 'Pagado' ? 'PAGADO' : 'PENDIENTE'
     ])
 
-    doc.autoTable({
+    autoTable(doc, {
         startY: 95,
         head: [['Recibo', 'Fecha Vencimiento', 'Monto', 'Estado']],
         body: tableRows,
