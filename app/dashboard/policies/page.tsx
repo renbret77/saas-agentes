@@ -500,13 +500,44 @@ export default function PoliciesPage() {
                                                                         policy.currency === 'USD' ? 'USD$' : '$'
                                                                     );
 
-                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', welcomeMsg);
-                                                                    window.open(waLink, '_blank');
+                                                                    setSelectorConfig({
+                                                                        type: 'whatsapp',
+                                                                        message: welcomeMsg,
+                                                                        clientData: policy.clients
+                                                                    });
+                                                                    setShowContactSelector(true);
                                                                 }}
                                                                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-black transition-all shadow-md active:scale-95 border border-slate-800"
                                                                 title="Enviar mensaje de bienvenida con enlace a carátula"
                                                             >
                                                                 <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> Bienvenida & Carátula
+                                                            </button>
+
+                                                            {/* Botón: Calendario de Pagos (v34) */}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const installments = policy.policy_installments || [];
+                                                                    
+                                                                    const msg = getPaymentCalendarMessage(
+                                                                        clientName,
+                                                                        policy.policy_number,
+                                                                        installments,
+                                                                        policy.currency === 'USD' ? 'USD$' : '$'
+                                                                    );
+
+                                                                    setSelectorConfig({
+                                                                        type: 'whatsapp',
+                                                                        message: msg,
+                                                                        clientData: policy.clients
+                                                                    });
+                                                                    setShowContactSelector(true);
+                                                                }}
+                                                                className="px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-50 transition-all shadow-sm active:scale-95"
+                                                                title="Enviar desglose de recibos y fechas"
+                                                            >
+                                                                <Calendar className="w-3.5 h-3.5" /> Calendario de Pagos
                                                             </button>
 
                                                             {/* Botón: Pre-Renovación (Recordatorio 30 días) */}
@@ -523,8 +554,13 @@ export default function PoliciesPage() {
                                                                             policy.end_date,
                                                                             policy.premium_total
                                                                         );
-                                                                        const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg);
-                                                                        window.open(waLink, '_blank');
+                                                                        
+                                                                        setSelectorConfig({
+                                                                            type: 'whatsapp',
+                                                                            message: msg,
+                                                                            clientData: policy.clients
+                                                                        });
+                                                                        setShowContactSelector(true);
                                                                     }}
                                                                     className="px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-amber-600 transition-all shadow-md active:scale-95"
                                                                     title="Recordatorio de renovación (Faltan 30 días o menos)"
@@ -534,56 +570,65 @@ export default function PoliciesPage() {
                                                             )}
 
                                                             {/* Botón: Póliza Renovada (Confirmación) */}
-                                                                                            <button
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                                                    const installments = policy.policy_installments || [];
-                                                                                                    const firstInst = installments.find((i: any) => i.installment_number === 1)?.total_amount || 0;
-                                                                                                    const subInst = installments.find((i: any) => i.installment_number === 2)?.total_amount || 0;
-                                                                                                    const limitDateFirst = installments.find((i: any) => i.installment_number === 1)?.due_date || policy.start_date;
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const installments = policy.policy_installments || [];
+                                                                    const firstInst = installments.find((i: any) => i.installment_number === 1)?.total_amount || 0;
+                                                                    const subInst = installments.find((i: any) => i.installment_number === 2)?.total_amount || 0;
+                                                                    const limitDateFirst = installments.find((i: any) => i.installment_number === 1)?.due_date || policy.start_date;
 
-                                                                                                    const renewedMsg = getRenewedMessage(
-                                                                                                        clientName,
-                                                                                                        policy.policy_number,
-                                                                                                        policy.insurers?.alias || policy.insurers?.name,
-                                                                                                        policy.insurance_lines?.name || 'Seguro',
-                                                                                                        policy.payment_method || 'Contado',
-                                                                                                        policy.start_date,
-                                                                                                        policy.end_date,
-                                                                                                        policy.premium_total,
-                                                                                                        firstInst,
-                                                                                                        subInst,
-                                                                                                        limitDateFirst,
-                                                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
-                                                                                                        policy.currency === 'USD' ? 'USD$' : '$'
-                                                                                                    );
+                                                                    const renewedMsg = getRenewedMessage(
+                                                                        clientName,
+                                                                        policy.policy_number,
+                                                                        policy.insurers?.alias || policy.insurers?.name,
+                                                                        policy.insurance_lines?.name || 'Seguro',
+                                                                        policy.payment_method || 'Contado',
+                                                                        policy.start_date,
+                                                                        policy.end_date,
+                                                                        policy.premium_total,
+                                                                        firstInst,
+                                                                        subInst,
+                                                                        limitDateFirst,
+                                                                        policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'https://api.whatsapp.com/send?text=Documento_no_disponible',
+                                                                        policy.currency === 'USD' ? 'USD$' : '$'
+                                                                    );
 
-                                                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', renewedMsg);
-                                                                                                    window.open(waLink, '_blank');
-                                                                                                }}
-                                                                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
-                                                                                                title="Entregar carátula de renovación"
-                                                                                            >
-                                                                                                <Shield className="w-3.5 h-3.5 text-blue-500" /> Póliza Renovada
-                                                                                            </button>
+                                                                    setSelectorConfig({
+                                                                        type: 'whatsapp',
+                                                                        message: renewedMsg,
+                                                                        clientData: policy.clients
+                                                                    });
+                                                                    setShowContactSelector(true);
+                                                                }}
+                                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                                                title="Entregar carátula de renovación"
+                                                            >
+                                                                <Shield className="w-3.5 h-3.5 text-blue-500" /> Póliza Renovada
+                                                            </button>
 
-                                                                                            {/* Botón: Link Directo (v31) */}
-                                                                                            <button
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
-                                                                                                    const policyLink = policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'Link_no_disponible';
-                                                                                                    
-                                                                                                    const msg = getDirectLinkMessage(clientName, policyLink);
-                                                                                                    const waLink = generateWhatsAppLink(policy.clients?.whatsapp || policy.clients?.phone || '', msg);
-                                                                                                    window.open(waLink, '_blank');
-                                                                                                }}
-                                                                                                className="px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
-                                                                                                title="Pica este link: Envía solo el acceso directo a la póliza"
-                                                                                            >
-                                                                                                <LinkIcon className="w-3.5 h-3.5" /> Link Directo
-                                                                                            </button>
+                                                            {/* Botón: Link Directo (v31) */}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const policyLink = policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'Link_no_disponible';
+                                                                    
+                                                                    const msg = getDirectLinkMessage(clientName, policyLink);
+                                                                    
+                                                                    setSelectorConfig({
+                                                                        type: 'whatsapp',
+                                                                        message: msg,
+                                                                        clientData: policy.clients
+                                                                    });
+                                                                    setShowContactSelector(true);
+                                                                }}
+                                                                className="px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
+                                                                title="Pica este link: Envía solo el acceso directo a la póliza"
+                                                            >
+                                                                <LinkIcon className="w-3.5 h-3.5" /> Link Directo
+                                                            </button>
 
                                                             {policy.notes && (
                                                                 <div className="flex-1 min-w-[200px] p-2 bg-amber-50/50 rounded-xl border border-amber-100/50 text-[10px] text-amber-800 italic leading-tight shadow-inner">
