@@ -31,6 +31,11 @@ export default function PoliciesPage() {
         clientData: any
     } | null>(null)
     const [generatingPDF, setGeneratingPDF] = useState<string | null>(null) // v34: ID de la póliza en proceso
+    
+    // v35: Borrado Seguro de Documentos
+    const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+    const [deletePhrase, setDeletePhrase] = useState("")
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const formatCurrency = (val: any) => {
         try {
@@ -42,6 +47,29 @@ export default function PoliciesPage() {
     useEffect(() => {
         fetchPolicies()
     }, [])
+
+    const handleDeleteDocument = async (docId: string) => {
+        if (deletePhrase !== 'borrar') return;
+        
+        try {
+            setIsDeleting(true);
+            const { error } = await supabase
+                .from('policy_documents')
+                .delete()
+                .eq('id', docId);
+
+            if (error) throw error;
+            
+            setDeletingDocId(null);
+            setDeletePhrase("");
+            fetchPolicies();
+        } catch (err: any) {
+            console.error("Error deleting document:", err);
+            alert("Error al borrar el documento: " + err.message);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const fetchPolicies = async () => {
         try {
@@ -449,14 +477,28 @@ export default function PoliciesPage() {
                                                                                             <span className="text-[10px] font-bold text-slate-700">{doc.document_type}</span>
                                                                                             <span className="text-[8px] text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</span>
                                                                                         </div>
-                                                                                        <a
-                                                                                            href={doc.file_url}
-                                                                                            target="_blank"
-                                                                                            rel="noopener noreferrer"
-                                                                                            className="text-blue-600 hover:text-blue-800 text-[9px] font-black uppercase tracking-tighter"
-                                                                                        >
-                                                                                            Ver
-                                                                                        </a>
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <a
+                                                                                                href={doc.file_url}
+                                                                                                target="_blank"
+                                                                                                rel="noreferrer"
+                                                                                                className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
+                                                                                                title="Ver documento"
+                                                                                            >
+                                                                                                <ChevronRight className="w-4 h-4" />
+                                                                                            </a>
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setDeletingDocId(doc.id);
+                                                                                                    setDeletePhrase("");
+                                                                                                }}
+                                                                                                className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
+                                                                                                title="Borrar documento"
+                                                                                            >
+                                                                                                <Trash2 className="w-4 h-4" />
+                                                                                            </button>
+                                                                                        </div>
                                                                                     </div>
                                                                                 ))}
                                                                         </div>
@@ -475,7 +517,7 @@ export default function PoliciesPage() {
                                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5 grayscale opacity-70">
                                                                 <MessageSquare className="w-3 h-3" /> Acciones Rápidas:
                                                             </span>
-                                                            
+
                                                             {/* Botón: Bienvenida (Alta Nueva) */}
                                                             <button
                                                                 onClick={(e) => {
@@ -524,7 +566,7 @@ export default function PoliciesPage() {
                                                                         setGeneratingPDF(policy.id);
                                                                         const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
                                                                         const installments = policy.policy_installments || [];
-                                                                        
+
                                                                         // 1. Generar PDF Blob (v35: Pasar end_date para los periodos)
                                                                         const pdfBlob = generatePolicyCalendarPDF(
                                                                             clientName,
@@ -538,7 +580,7 @@ export default function PoliciesPage() {
                                                                         // 2. Subir a Supabase Storage
                                                                         const fileName = `calendario_${policy.policy_number}_${Date.now()}.pdf`;
                                                                         const filePath = `${policy.client_id}/${fileName}`;
-                                                                        
+
                                                                         const { data: uploadData, error: uploadError } = await supabase.storage
                                                                             .from('client_docs')
                                                                             .upload(filePath, pdfBlob);
@@ -565,7 +607,7 @@ export default function PoliciesPage() {
 
                                                                         // 5. Preparar Mensaje con Link Branded
                                                                         const brandedLink = getBrandedViewerLink(publicUrl, clientName, 'Calendario de Pagos', policy.id);
-                                                                        
+
                                                                         const msg = [
                                                                             getPaymentCalendarMessage(
                                                                                 clientName,
@@ -595,7 +637,7 @@ export default function PoliciesPage() {
                                                                 className={`px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-50 transition-all shadow-sm active:scale-95 ${generatingPDF === policy.id ? 'opacity-50 cursor-wait' : ''}`}
                                                                 title="Generar PDF y enviar desglose de recibos"
                                                             >
-                                                                <Calendar className={`w-3.5 h-3.5 ${generatingPDF === policy.id ? 'animate-bounce' : ''}`} /> 
+                                                                <Calendar className={`w-3.5 h-3.5 ${generatingPDF === policy.id ? 'animate-bounce' : ''}`} />
                                                                 {generatingPDF === policy.id ? 'Generando...' : 'Calendario de Pagos'}
                                                             </button>
 
@@ -613,7 +655,7 @@ export default function PoliciesPage() {
                                                                             policy.end_date,
                                                                             policy.premium_total
                                                                         );
-                                                                        
+
                                                                         setSelectorConfig({
                                                                             type: 'whatsapp',
                                                                             message: msg,
@@ -673,9 +715,9 @@ export default function PoliciesPage() {
                                                                     e.stopPropagation();
                                                                     const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
                                                                     const policyLink = policy.policy_documents?.find((d: any) => d.document_type === 'Carátula')?.file_url || 'Link_no_disponible';
-                                                                    
+
                                                                     const msg = getDirectLinkMessage(clientName, policyLink);
-                                                                    
+
                                                                     setSelectorConfig({
                                                                         type: 'whatsapp',
                                                                         message: msg,
@@ -733,23 +775,23 @@ export default function PoliciesPage() {
                                 </h3>
                                 <p className="text-slate-500 font-medium mt-1">Selecciona el destinatario de la lista</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setShowContactSelector(false)}
                                 className="p-3 hover:bg-slate-100 rounded-full text-slate-400 transition-all active:scale-90"
                             >
                                 <Plus className="w-6 h-6 rotate-45" />
                             </button>
                         </div>
-                        
+
                         <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar bg-slate-50/30">
                             {(() => {
                                 const contacts = []
                                 const client = selectorConfig.clientData
-                                
+
                                 if (selectorConfig.type === 'whatsapp') {
                                     if (client.whatsapp) contacts.push({ name: `${client.first_name} (WhatsApp)`, value: client.whatsapp, type: 'Primario', isAlert: true })
                                     if (client.mobile_phone && client.mobile_phone !== client.whatsapp) contacts.push({ name: `${client.first_name} (Móvil)`, value: client.mobile_phone, type: 'Secundario' })
-                                    
+
                                     // v3.0: WhatsApp Adicionales
                                     const additional = (client.additional_phones as any[]) || []
                                     additional.forEach(ap => {
@@ -816,13 +858,55 @@ export default function PoliciesPage() {
                                 )
                             })()}
                         </div>
-                        
+
                         <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-center">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest"> RB Proyectos • Sistema de Notificaciones </p>
                         </div>
                     </div>
                 </div>
             )}
+            {/* Modal de Borrado Seguro (v35) */}
+            {deletingDocId && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="p-8 text-center">
+                            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <Trash2 className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900 mb-2">¿Seguro que deseas borrarlo?</h3>
+                            <p className="text-sm text-slate-500 font-medium mb-6">Esta acción es irreversible. Para confirmar, escribe la palabra <span className="text-rose-600 font-black italic">borrar</span> abajo:</p>
+
+                            <input
+                                type="text"
+                                value={deletePhrase}
+                                onChange={(e) => setDeletePhrase(e.target.value.toLowerCase())}
+                                placeholder='Escribe "borrar" para confirmar'
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-center font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 mb-6 transition-all"
+                                autoFocus
+                            />
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setDeletingDocId(null);
+                                        setDeletePhrase("");
+                                    }}
+                                    className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all active:scale-95"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteDocument(deletingDocId)}
+                                    disabled={deletePhrase !== 'borrar' || isDeleting}
+                                    className={`flex-1 px-6 py-3 bg-rose-600 text-white rounded-xl font-black transition-all active:scale-95 shadow-lg shadow-rose-200 ${deletePhrase !== 'borrar' || isDeleting ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:bg-rose-700'}`}
+                                >
+                                    {isDeleting ? 'Borrando...' : 'Confirmar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-    );
+    )
 }

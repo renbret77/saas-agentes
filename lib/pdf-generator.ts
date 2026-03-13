@@ -43,7 +43,6 @@ export const generatePolicyCalendarPDF = (
     doc.text(`Cliente: ${clientName}`, 20, 65)
     doc.text(`Póliza: ${policyNumber}`, 20, 71)
     doc.text(`Aseguradora: ${insurerName}`, 20, 77)
-    doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-MX')}`, 20, 83)
 
     // Installments Table
     const tableRows = installments.map((inst, index) => {
@@ -73,7 +72,7 @@ export const generatePolicyCalendarPDF = (
     })
 
     autoTable(doc, {
-        startY: 95,
+        startY: 85,
         head: [['Recibo', 'Periodo de Cobertura', 'Monto Total', 'Límite de Pago', 'Estado']],
         body: tableRows,
         styles: { font: 'helvetica', fontSize: 8 },
@@ -96,7 +95,7 @@ export const generatePolicyCalendarPDF = (
     doc.text("Información sobre el Periodo de Gracia:", 20, finalY)
     doc.setFontSize(8)
     const splitText = doc.splitTextToSize(
-        "De acuerdo a las condiciones de su póliza, cuenta con un periodo de gracia de 30 días naturales a partir del inicio del recibo para realizar su pago sin perder la cobertura. Le sugerimos realizar su trámite con anticipación para evitar cualquier contratiempo.",
+        "IMPORTANTE: Durante el periodo de gracia su póliza permanece vigente y cuenta con cobertura. Sin embargo, en caso de siniestro dentro de estos días, la aseguradora podría solicitar el pago inmediato del recibo pendiente para otorgar la atención, o bien, el trámite podría realizarse inicialmente vía reembolso. Le recomendamos mantenerse al corriente para evitar estos procesos adicionales.",
         170
     )
     doc.text(splitText, 20, finalY + 5)

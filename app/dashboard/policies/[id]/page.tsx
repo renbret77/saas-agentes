@@ -31,8 +31,14 @@ export default function EditPolicyPage({ params }: { params: any }) {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [documents, setDocuments] = useState<any[]>([])
+    const [generatingPDF, setGeneratingPDF] = useState(false)
     const [uploadingDoc, setUploadingDoc] = useState(false)
+    const [selectedDocType, setSelectedDocType] = useState('Póliza')
+    
+    // v35: Borrado Seguro
+    const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+    const [deletePhrase, setDeletePhrase] = useState("")
+    const [isDeleting, setIsDeleting] = useState(false)
     const [sequenceStep, setSequenceStep] = useState(0) // 0: None, 1: Summary, 2: Caratula, 3: Calendar, 4: Manual, 5: Tips
 
     // Manuales de Pago por Aseguradora
@@ -125,7 +131,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
     };
 
     const [installments, setInstallments] = useState<any[]>([])
-    const [selectedDocType, setSelectedDocType] = useState('')
+    // const [selectedDocType, setSelectedDocType] = useState('') // Moved to top
 
     useEffect(() => {
         if (policyId) {
@@ -281,7 +287,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
                     fetchDocuments()
                 }
             }
-            setSelectedDocType('')
+            setSelectedDocType('Póliza') // Reset to default
             alert('Documento cargado con éxito')
         } catch (err: any) {
             console.error("Error detailed uploading doc:", err)
@@ -294,7 +300,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
 
     const handleGeneratePDF = async (type: 'payment' | 'recommendations' | 'manual') => {
         if (!policyId) return
-        setUploadingDoc(true)
+        setGeneratingPDF(true)
         try {
             const insurerName = insurers.find(i => i.id === formData.insurer_id)?.name || 'Aseguradora'
             const client = clients.find(c => c.id === formData.client_id)
@@ -355,7 +361,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
             console.error("Error generating PDF:", err)
             alert("Error al generar PDF: " + (err.message || 'Error desconocido'))
         } finally {
-            setUploadingDoc(false)
+            setGeneratingPDF(false)
         }
     }
 
@@ -419,10 +425,22 @@ export default function EditPolicyPage({ params }: { params: any }) {
     }
 
     const handleDeleteDoc = async (docId: string) => {
-        if (!confirm('¿Seguro que quieres eliminar este documento?')) return
-        const { error } = await supabase.from('policy_documents').delete().eq('id', docId)
-        if (error) alert("Error al eliminar")
-        else fetchDocuments()
+        if (deletePhrase !== 'borrar') return
+        
+        try {
+            setIsDeleting(true)
+            const { error } = await supabase.from('policy_documents').delete().eq('id', docId)
+            if (error) throw error
+            
+            setDeletingDocId(null)
+            setDeletePhrase("")
+            fetchDocuments()
+        } catch (err: any) {
+            console.error("Error deleting doc:", err)
+            alert("Error al borrar el documento")
+        } finally {
+            setIsDeleting(false)
+        }
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -1266,14 +1284,14 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                         type="file"
                                         className={`absolute inset-0 w-full h-full opacity-0 ${!selectedDocType ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                         onChange={handleDocUpload}
-                                        disabled={uploadingDoc || !selectedDocType}
+                                        disabled={uploadingDoc || generatingPDF || !selectedDocType}
                                     />
                                     <button 
                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all ${
                                             !selectedDocType 
                                             ? 'bg-slate-100 text-slate-400 border border-slate-200' 
                                             : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                        } ${uploadingDoc ? 'opacity-50' : ''}`}
+                                        } ${uploadingDoc || generatingPDF ? 'opacity-50' : ''}`}
                                         title={!selectedDocType ? "Selecciona una categoría primero" : ""}
                                     >
                                         {uploadingDoc ? 'Cargando...' : <><Upload className="w-4 h-4" /> Subir</>}
@@ -1282,21 +1300,21 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                 <div className="flex gap-2">
                                     <button 
                                         onClick={() => handleGeneratePDF('payment')}
-                                        disabled={uploadingDoc}
+                                        disabled={generatingPDF || uploadingDoc}
                                         className="text-[10px] font-bold px-3 py-2 bg-slate-100 text-slate-700 rounded-xl border border-slate-200 hover:bg-slate-200 transition-all"
                                     >
                                         Generar Calendario PDF 📅
                                     </button>
                                     <button 
                                         onClick={() => handleGeneratePDF('recommendations')}
-                                        disabled={uploadingDoc}
+                                        disabled={generatingPDF || uploadingDoc}
                                         className="text-[10px] font-bold px-3 py-2 bg-slate-100 text-slate-700 rounded-xl border border-slate-200 hover:bg-slate-200 transition-all"
                                     >
                                         Guía de Seguridad PDF 🛡️
                                     </button>
                                     <button 
                                         onClick={() => handleGeneratePDF('manual')}
-                                        disabled={uploadingDoc}
+                                        disabled={generatingPDF || uploadingDoc}
                                         className="text-[10px] font-black px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
                                     >
                                         Manual Branded 🏢
