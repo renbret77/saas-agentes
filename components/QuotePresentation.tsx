@@ -15,19 +15,45 @@ interface QuotePresentationProps {
 export default function QuotePresentation({ type, quoteData, agencyName = "Tu Agente de Seguros", videoUrl }: QuotePresentationProps) {
     const template = (INSURANCE_TEMPLATES as any)[type] || INSURANCE_TEMPLATES.auto
     const [openFaq, setOpenFaq] = useState<number | null>(null)
-    const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+
+    // Listado de Coberturas Accesorias Identificadas (Quálitas & Otros)
+    const ACCESSORY_KEYWORDS = [
+        "RC Complementaria", "RC Cruzada", "Remolque", "Transporte", "Robo Parcial", "CADE", 
+        "Exención de Deducible", "Llantas", "Rines", "Agencia", "Sustituto", "Extensión de RC",
+        "Contenidos", "Cristales", "Maternidad", "Extranjero", "Dental", "Visión", "Maniobras", "Estadía"
+    ]
 
     // Datos para personalización Omni Elite
     const clientName = quoteData.client_name || "Estimado Cliente"
     const vehicleName = quoteData.vehicle_description || (type === 'auto' ? "tu vehículo" : "tu patrimonio")
     
-    // Lógica Financiera Dinámica
-    const basePriceString = quoteData.total_premium?.toString() || "0"
-    const basePrice = parseFloat(basePriceString.replace(/,/g, '')) || 0
+    // Lógica Financiera Dinámica Avanzada (Inversa)
+    const totalPremiumFromPDF = parseFloat(quoteData.premium_total?.toString().replace(/,/g, '')) || 0
+    
+    // Identificar qué coberturas en el PDF son "Accesorias"
+    const detectedAccessories = quoteData.coverages?.filter((cov: any) => 
+        ACCESSORY_KEYWORDS.some(key => cov.name.toLowerCase().includes(key.toLowerCase()))
+    ) || []
+
+    const accessoriesSum = detectedAccessories.reduce((acc: number, cov: any) => acc + (cov.price || 0), 0)
+    
+    // El precio base es Total - Accesorios
+    const basePrice = totalPremiumFromPDF - accessoriesSum
+    
+    // El estado de selectedAddons inicial debe ser vacío si queremos el efecto "Upsell"
+    // O podemos pre-seleccionar los detectados. Rene quiere el efecto de "armar", así que iniciamos vacío.
+    const [selectedAddons, setSelectedAddons] = useState<string[]>(
+        // Por defecto no seleccionamos nada para mostrar la "Amplia Básica" primero
+        []
+    )
     
     const addonsTotal = selectedAddons.reduce((acc, id) => {
         const addon = template.optional_coverages?.find((a: any) => a.id === id)
-        return acc + (addon?.price || 0)
+        // Intentar usar el precio exacto del PDF si lo detectamos, si no usar el del template
+        const exactPriceFromPDF = detectedAccessories.find((da: any) => 
+            da.name.toLowerCase().includes(addon?.name.toLowerCase())
+        )?.price
+        return acc + (exactPriceFromPDF || addon?.price || 0)
     }, 0)
     
     const totalPrice = basePrice + addonsTotal
@@ -136,7 +162,7 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
                         className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-2xl rounded-full border border-white/20 shadow-2xl"
                     >
                         <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Omni Elite Proposal v3.0</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Omni Elite Proposal v3.1</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                     </motion.div>
 
@@ -176,7 +202,7 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
                             <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">Status Inteligencia</p>
                             <div className="flex items-center gap-2">
                                 <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                                <p className="text-sm font-black text-white uppercase tracking-tighter">Analizado OMNI 2.5</p>
+                                <p className="text-sm font-black text-white uppercase tracking-tighter">Analizado OMNI 3.0 ELITE</p>
                             </div>
                         </div>
                     </motion.div>

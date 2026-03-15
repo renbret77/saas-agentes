@@ -367,17 +367,29 @@ export default function QuotesPage() {
 
                                     <div className="flex items-center gap-6">
                                         {publicShareId && (
-                                            <button
-                                                onClick={() => {
-                                                    const url = `${window.location.origin}/cotizacion/${publicShareId}`
-                                                    navigator.clipboard.writeText(url)
-                                                    alert("¡Link de Cierre Omni Elite Copiado! 🚀🚀")
-                                                }}
-                                                className="px-12 py-6 bg-slate-900 text-white font-black rounded-3xl hover:bg-slate-800 transition-all text-[10px] tracking-[0.3em] uppercase flex items-center gap-4 shadow-2xl shadow-slate-900/40 group/share"
-                                            >
-                                                <ExternalLink className="w-6 h-6 text-emerald-400 group-hover/share:rotate-12 transition-transform" /> 
-                                                Copiar Link de Cierre
-                                            </button>
+                                            <div className="flex flex-col gap-3">
+                                                <button
+                                                    onClick={() => {
+                                                        const url = `${window.location.origin}/cotizacion/${publicShareId}`
+                                                        navigator.clipboard.writeText(url)
+                                                        alert("¡Link de Cierre Omni Elite Copiado! 🚀🚀")
+                                                    }}
+                                                    className="px-12 py-6 bg-slate-100 text-slate-900 border border-slate-200 font-black rounded-3xl hover:bg-white transition-all text-[10px] tracking-[0.3em] uppercase flex items-center gap-4 shadow-sm group/share"
+                                                >
+                                                    <ExternalLink className="w-6 h-6 text-slate-400 group-hover/share:rotate-12 transition-transform" /> 
+                                                    Copiar Link de Cierre
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const url = `${window.location.origin}/cotizacion/${publicShareId}`
+                                                        window.open(url, '_blank')
+                                                    }}
+                                                    className="px-12 py-6 bg-slate-900 text-white font-black rounded-3xl hover:bg-slate-800 transition-all text-[10px] tracking-[0.3em] uppercase flex items-center gap-4 shadow-2xl shadow-slate-900/40 group/view"
+                                                >
+                                                    <MousePointer2 className="w-6 h-6 text-emerald-400 group-hover/view:scale-110 transition-transform" /> 
+                                                    Ver Landing Page
+                                                </button>
+                                            </div>
                                         )}
                                         <button
                                             onClick={() => { setStep('selection'); setFiles([]); setResults([]); setPublicShareId(null); setClientName(""); }}

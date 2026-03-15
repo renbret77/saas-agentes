@@ -23,6 +23,76 @@ export const INSURANCE_TEMPLATES = {
         faq: [
             { q: "¿Qué giros protege SeguPyme?", a: "Casi cualquier negocio: comercio, servicios, manufactura ligera y más. Si tienes un local, tienes protección." },
             { q: "¿Cubre daños a mis vecinos?", a: "Sí, la Responsabilidad Civil incluye daños que tu negocio pueda causar accidentalmente a terceros o inmuebles colindantes." }
+        ],
+        optional_coverages: [
+            { 
+                id: "pyme_contents", 
+                name: "Robo de Contenidos y Mercancías", 
+                price: 2400, 
+                image: "/hero_pyme_business_safety_1773598757709.png",
+                description: "Protege contra robo asalto de tu inventario, maquinaria y mobiliario de oficina." 
+            },
+            { 
+                id: "pyme_glass", 
+                name: "Rotura de Cristales Premium", 
+                price: 850, 
+                image: "/hero_segupyme_modern.png",
+                description: "Cubre vitrinas, cristales templados y anuncios luminosos ante accidentes o vandalismo." 
+            },
+            { 
+                id: "pyme_legal_ext", 
+                name: "Defensa Legal Extendida", 
+                price: 1200, 
+                image: "/hero_segupyme_office.png",
+                description: "Asistencia jurídica ilimitada para asuntos laborales y reclamaciones de clientes." 
+            }
+        ]
+    },
+    gastos_medicos: {
+        title: "Gastos Médicos: Protección Élite para tu Salud",
+        subtitle: "Acceso a los mejores hospitales y especialistas cuando más los necesitas.",
+        hero: "/hero_medical_elite_maverick_1773598742096.png",
+        varieties: [
+            "/hero_medical_elite_maverick_1773598742096.png"
+        ],
+        description: "Tu salud no puede esperar. Esta cobertura te garantiza atención médica de primer nivel, cirugías, medicamentos y tratamientos especializados sin poner en riesgo tu estabilidad financiera.",
+        story: {
+            problem: "Una urgencia médica puede costar cientos de miles de pesos en cuestión de horas.",
+            agitate: "No tener el respaldo adecuado en un hospital privado significa comprometer tus ahorros o, peor aún, la calidad de la atención.",
+            solution: "Nuestra póliza Omni Elite en Salud te da el pase directo a los mejores centros médicos, con pagos directos de la aseguradora para que tú solo te enfoques en tu recuperación."
+        },
+        benefits: [
+            { title: "Red Hospitalaria Premium", desc: "Acceso a los hospitales de mayor prestigio en todo el país sin restricciones." },
+            { title: "Atención Especializada", desc: "Consultas con los mejores médicos y especialistas, incluyendo honorarios quirúrgicos." },
+            { title: "Medicamentos y Diagnóstico", desc: "Cobertura total en farmacia, estudios de laboratorio e imagenología de alta gama." },
+            { title: "Atención de Emergencia", desc: "Coordinación inmediata de ambulancias y estabilización en caso de accidente o crisis de salud." }
+        ],
+        optional_coverages: [
+            { 
+                id: "gmm_maternity", 
+                name: "Ayuda por Maternidad Plus", 
+                price: 4500, 
+                image: "/hero_medical_elite_maverick_1773598742096.png",
+                description: "Fondo adicional para gastos de parto o cesárea y protección del recién nacido desde el día uno." 
+            },
+            { 
+                id: "gmm_usa", 
+                name: "Emergencia en el Extranjero", 
+                price: 3200, 
+                image: "/hero_viajero_v3_airplane_window_1773130000000_1773164469170.png",
+                description: "Te protege ante urgencias médicas ocurridas fuera de México con sumas aseguradas en dólares." 
+            },
+            { 
+                id: "gmm_dental", 
+                name: "Blindaje Dental y Visión", 
+                price: 1100, 
+                image: "/hero_oficinas_v2_meeting_room_1773122973913.png",
+                description: "Tratamientos dentales preventivos, correctivos y apoyo para lentes graduados." 
+            }
+        ],
+        faq: [
+            { q: "¿Qué es el deducible?", a: "Es la cantidad fija que pagas en el primer evento del año; a partir de ahí, la aseguradora cubre el resto." },
+            { q: "¿Cubre preexistencias?", a: "Dependiendo del plan, después de un periodo de espera se pueden cubrir padecimientos diagnosticados anteriormente." }
         ]
     },
     gastos_funerarios: {
@@ -265,6 +335,22 @@ export const INSURANCE_TEMPLATES = {
         ],
         faq: [
             { q: "¿Cubre si el transporte es propio?", a: "Sí, protegemos la carga tanto en transporte de terceros como en vehículos propiedad de tu empresa." }
+        ],
+        optional_coverages: [
+            { 
+                id: "cargo_maneuver", 
+                name: "Maniobras de Carga y Descarga", 
+                price: 1560, 
+                image: "/hero_camiones_logistics_1773122245741.png",
+                description: "Cubre los daños accidentales que ocurran mientras se sube o baja la mercancía del transporte." 
+            },
+            { 
+                id: "cargo_stays", 
+                name: "Estadía y Bodegaje Temporal", 
+                price: 980, 
+                image: "/hero_mercancias_v2_port_1773130000004_1773164533578.png",
+                description: "Extiende la protección mientras la carga espera en puertos o bodegas de transbordo hasta por 15 días." 
+            }
         ]
     },
     rc_profesional: {
