@@ -27,12 +27,15 @@ import {
     TowerControl,
     Copy,
     Mail,
-    Percent
+    Percent,
+    Sparkles
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { ClaimsAIWizard } from "@/components/dashboard/ClaimsAIWizard"
+import { ClaimGapAnalysis } from "@/components/dashboard/ClaimGapAnalysis"
 
 const STATUS_COLORS = {
     'Abierto': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -83,6 +86,7 @@ export default function ClaimsPage() {
     const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0])
     const [responseDate, setResponseDate] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [aiAnalysisData, setAiAnalysisData] = useState<any>(null)
 
     // Claims 360 Detail State
     const [viewingClaim, setViewingClaim] = useState<any>(null)
@@ -410,6 +414,18 @@ export default function ClaimsPage() {
         }
     }
 
+    const handleAIAnalysisComplete = (data: any) => {
+        setAiAnalysisData(data)
+        if (data.diagnosis) {
+            setDescription(prev => {
+                const clean = prev.replace(/\[DIA:.*\]/, "").trim()
+                return `[DIA: ${data.diagnosis}] ${clean}`
+            })
+        }
+        if (data.folio) setFolioNumber(data.folio)
+        if (data.claim_date) setReportDate(data.claim_date)
+    }
+
     const filteredPolicies = policies.filter(p =>
         (p.client?.first_name + " " + p.client?.last_name).toLowerCase().includes(policySearch.toLowerCase()) ||
         (p.policy_number || "").toLowerCase().includes(policySearch.toLowerCase())
@@ -713,6 +729,9 @@ export default function ClaimsPage() {
                                                 </div>
                                             </div>
 
+                                            {/* Deep AI Audit Section - Gap Analysis */}
+                                            <ClaimGapAnalysis claim={viewingClaim} />
+
                                             {/* Checklist Section */}
                                             <div className="space-y-6">
                                                 <div className="flex items-center justify-between px-2">
@@ -767,6 +786,15 @@ export default function ClaimsPage() {
                                                                             >
                                                                                 <ExternalLink className="w-4 h-4" />
                                                                             </a>
+                                                                            {item.document_url && (
+                                                                                <button
+                                                                                    onClick={() => alert(`Iniciando Revisión IA para: ${item.name}`)}
+                                                                                    className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all border border-indigo-100"
+                                                                                    title="Revisión IA"
+                                                                                >
+                                                                                    <Sparkles className="w-4 h-4" />
+                                                                                </button>
+                                                                            )}
                                                                             <label className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 transition-all border border-slate-200 cursor-pointer shadow-sm">
                                                                                 <Paperclip className="w-4 h-4" />
                                                                                 <input
@@ -1088,6 +1116,9 @@ export default function ClaimsPage() {
 
                                     {step === 3 && (
                                         <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-6">
+                                            {/* AI Wizard for Auto-Fill */}
+                                            <ClaimsAIWizard onAnalysisComplete={handleAIAnalysisComplete} claimType={claimType} />
+
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Folio Aseguradora</label>

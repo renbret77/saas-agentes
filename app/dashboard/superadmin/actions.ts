@@ -87,6 +87,7 @@ export async function createAgencyAndAdmin(formData: FormData) {
     return { success: true }
 }
 
+
 export async function updateAgencyStatus(agencyId: string, status: string) {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     const { error } = await supabaseAdmin
@@ -95,6 +96,49 @@ export async function updateAgencyStatus(agencyId: string, status: string) {
         .eq('id', agencyId)
 
     if (error) return { error: error.message }
+
+    revalidatePath('/dashboard/superadmin')
+    return { success: true }
+}
+
+export async function addAgencyCredits(agencyId: string, amount: number) {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+    
+    // 1. Encontrar al admin de la agencia para recargar sus créditos individuales
+    // (En este modelo, los créditos viven en user_credits ligados al user_id del admin)
+    const { data: adminProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('agency_id', agencyId)
+        .eq('role', 'admin')
+        .single()
+
+    if (profileError || !adminProfile) {
+        return { error: "No se encontró un administrador para esta agencia." }
+    }
+
+    // 2. Incrementar créditos usando una función RPC o directamente si existe la fila
+    // Buscamos si ya tiene fila en user_credits
+    const { data: currentCredits } = await supabaseAdmin
+        .from('user_credits')
+        .select('balance')
+        .eq('user_id', adminProfile.id)
+        .single()
+
+    if (currentCredits) {
+        const { error: updateError } = await supabaseAdmin
+            .from('user_credits')
+            .update({ balance: (currentCredits.balance || 0) + amount })
+            .eq('user_id', adminProfile.id)
+        
+        if (updateError) return { error: updateError.message }
+    } else {
+        const { error: insertError } = await supabaseAdmin
+            .from('user_credits')
+            .insert({ user_id: adminProfile.id, balance: amount })
+        
+        if (insertError) return { error: insertError.message }
+    }
 
     revalidatePath('/dashboard/superadmin')
     return { success: true }

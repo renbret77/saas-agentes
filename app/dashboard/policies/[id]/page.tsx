@@ -2,7 +2,13 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Shield, User, Building2, CreditCard, FileText, CheckCircle2, ChevronRight, ChevronLeft, Upload, MessageSquare, RefreshCw, Link as LinkIcon, Zap, Eye, Bell } from "lucide-react"
+import { 
+    X, Mail as MailIcon, Phone, User as UserIcon, Users, 
+    Trash2, Send, MessageCircle, Eye, Bell, FileText, 
+    MessageSquare, RefreshCw, Link as LinkIcon, Zap,
+    ChevronRight, ChevronLeft, Upload, Save, Shield,
+    ArrowLeft, CheckCircle2, Building2, CreditCard
+} from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
@@ -18,12 +24,14 @@ import {
     getDirectLinkMessage,
     getCollectionMessage 
 } from "@/lib/whatsapp-templates"
-import { X, Mail as MailIcon, Phone, User as UserIcon, Users } from "lucide-react"
 import { creditsManager } from "@/lib/credits-manager"
 import { generatePolicyCalendarPDF, generateInsuranceTipsPDF, generateInsurerManualPDF } from "@/lib/pdf-generator"
 import { getInsurerConfig } from "@/lib/insurers-config"
 import { classifyFile, processFileList, ClassifiedFile } from "@/lib/policy-processor"
-import { Trash2 } from "lucide-react"
+import PhoneInput from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
+import EmailComposer from "@/components/dashboard/EmailComposer"
+import { CommunicationService } from "@/lib/communications"
 
 export default function EditPolicyPage({ params }: { params: any }) {
     const resolvedParams: any = use(params)
@@ -100,6 +108,19 @@ export default function EditPolicyPage({ params }: { params: any }) {
         description: ''
     })
 
+    const [showEmailComposer, setShowEmailComposer] = useState(false)
+    const [emailPreSelectedDocId, setEmailPreSelectedDocId] = useState<string | undefined>()
+    const [composerData, setComposerData] = useState<any>({
+        to: '',
+        subject: '',
+        content: '',
+        category: 'poliza_nueva'
+    })
+
+    const [isReviewingMessage, setIsReviewingMessage] = useState(false)
+    const [reviewedMessage, setReviewedMessage] = useState("")
+    const [selectedContact, setSelectedContact] = useState<any>(null)
+
     const [showContactSelector, setShowContactSelector] = useState(false)
     const [selectorConfig, setSelectorConfig] = useState<{
         type: 'whatsapp' | 'email',
@@ -137,6 +158,7 @@ export default function EditPolicyPage({ params }: { params: any }) {
     };
 
     const [installments, setInstallments] = useState<any[]>([])
+    const [documents, setDocuments] = useState<any[]>([])
     // const [selectedDocType, setSelectedDocType] = useState('') // Moved to top
 
     useEffect(() => {
@@ -1447,7 +1469,82 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            {/* OJO: Ver original */}
+                                            <a
+                                                href={doc.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
+                                                title="Ver Documento"
+                                            >
+                                                <Eye className="w-5 h-5" />
+                                            </a>
+
+                                            {/* SOBRE: Mandar Correo */}
+                                            <button
+                                                onClick={() => {
+                                                    const client = clients.find(c => c.id === formData.client_id)
+                                                    const clientName = `${client?.first_name} ${client?.last_name}`
+                                                    const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id)
+                                                    
+                                                    setEmailPreSelectedDocId(doc.id)
+                                                    setComposerData({
+                                                        to: client?.email || '',
+                                                        subject: `Documento de Seguro: ${doc.document_type} - ${formData.policy_number}`,
+                                                        content: `Hola ${client?.first_name},\n\nTe adjunto tu ${doc.document_type} de la póliza ${formData.policy_number}.\n\nPuedes verla aquí: ${brandedLink}\n\nQuedamos a tus órdenes.`,
+                                                        category: 'manual', // Use manual to allow the custom content
+                                                        client_id: client?.id,
+                                                        policy_id: policyId
+                                                    })
+                                                    setShowEmailComposer(true)
+                                                }}
+                                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                title="Enviar por Correo"
+                                            >
+                                                <MailIcon className="w-5 h-5" />
+                                            </button>
+
+                                            {/* TELÉFONO VERDE: WhatsApp */}
+                                            <button
+                                                onClick={() => {
+                                                    const client = clients.find(c => c.id === formData.client_id)
+                                                    const clientName = `${client?.first_name} ${client?.last_name}`
+                                                    const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id)
+                                                    const msg = getDirectLinkMessage(clientName, brandedLink)
+                                                    
+                                                    setSelectorConfig({
+                                                        type: 'whatsapp',
+                                                        message: msg
+                                                    })
+                                                    setShowContactSelector(true)
+                                                }}
+                                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                                title="Enviar por WhatsApp"
+                                            >
+                                                <MessageCircle className="w-5 h-5" />
+                                            </button>
+
+                                            {/* AVIÓN: Telegram */}
+                                            <button
+                                                onClick={() => {
+                                                    const client = clients.find(c => c.id === formData.client_id)
+                                                    const clientName = `${client?.first_name} ${client?.last_name}`
+                                                    const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id)
+                                                    const msg = `Hola ${clientName}, te mando tu ${doc.document_type}: ${brandedLink}`
+                                                    
+                                                    setSelectorConfig({
+                                                        type: 'telegram' as any,
+                                                        message: msg
+                                                    })
+                                                    setShowContactSelector(true)
+                                                }}
+                                                className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all"
+                                                title="Enviar por Telegram"
+                                            >
+                                                <Send className="w-5 h-5" />
+                                            </button>
+
                                             {doc.view_count === 0 && (
                                                 <button
                                                     onClick={() => {
@@ -1457,28 +1554,19 @@ export default function EditPolicyPage({ params }: { params: any }) {
                                                         const msg = getReminderMessage(clientName, doc.document_type, brandedLink)
                                                         window.open(generateWhatsAppLink(client?.whatsapp || client?.phone || '', msg), '_blank')
                                                     }}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-100 transition-all"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-100 transition-all ml-2"
                                                 >
                                                     <Bell className="w-3.5 h-3.5" /> RE-ENVIAR 🔔
                                                 </button>
                                             )}
                                             
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <a
-                                                    href={doc.file_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
-                                                >
-                                                    Ver Original
-                                                </a>
-                                                <button
-                                                    onClick={() => handleDeleteDoc(doc.id)}
-                                                    className="px-3 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                                >
-                                                    Eliminar
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteDoc(doc.id)}
+                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors ml-auto"
+                                                title="Eliminar"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -1504,93 +1592,137 @@ export default function EditPolicyPage({ params }: { params: any }) {
             </div>
         </div>
 
-        {/* Modal Selección de Contacto */}
+        {/* Modal Selección de Contacto con REVISIÓN (Borrador) */}
         {showContactSelector && selectorConfig && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
                     <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                                {selectorConfig.type === 'whatsapp' ? <MessageSquare className="w-5 h-5" /> : <MailIcon className="w-5 h-5" />}
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-100 text-emerald-600' : selectorConfig.type === 'telegram' ? 'bg-sky-100 text-sky-600' : 'bg-blue-100 text-blue-600'}`}>
+                                {selectorConfig.type === 'whatsapp' ? <MessageCircle className="w-5 h-5" /> : selectorConfig.type === 'telegram' ? <Send className="w-5 h-5" /> : <MailIcon className="w-5 h-5" />}
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900">Seleccionar {selectorConfig.type === 'whatsapp' ? 'WhatsApp' : 'Email'}</h3>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">¿A quién enviamos el mensaje?</p>
+                                <h3 className="font-bold text-slate-900">Enviar {selectorConfig.type === 'whatsapp' ? 'WhatsApp' : selectorConfig.type === 'telegram' ? 'Telegram' : 'Email'}</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Revisa y selecciona destinatario</p>
                             </div>
                         </div>
                         <button 
-                            onClick={() => setShowContactSelector(false)}
+                            onClick={() => {
+                                setShowContactSelector(false)
+                                setIsReviewingMessage(false)
+                            }}
                             className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
                         >
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <div className="p-4 max-h-[400px] overflow-y-auto space-y-2 bg-white">
-                        {(() => {
-                            const client = clients.find(c => c.id === formData.client_id)
-                            const options: any[] = []
+                    <div className="p-6 space-y-6">
+                        {/* 1. ÁREA DE REVISIÓN (BORRADOR) */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <FileText className="w-3 h-3" /> Borrador del Mensaje
+                            </label>
+                            <textarea
+                                value={selectorConfig.message}
+                                onChange={(e) => setSelectorConfig({ ...selectorConfig, message: e.target.value })}
+                                className="w-full h-32 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all resize-none font-medium"
+                                placeholder="Escribe el mensaje aquí..."
+                            />
+                        </div>
 
-                            if (client) {
-                                if (selectorConfig.type === 'whatsapp') {
-                                    if (client.whatsapp) options.push({ label: 'WhatsApp Principal', value: client.whatsapp, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
-                                    if (client.phone && client.phone !== client.whatsapp) options.push({ label: 'Teléfono Secundario', value: client.phone, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
-                                } else {
-                                    if (client.email) options.push({ label: 'Email Principal', value: client.email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
-                                    if (client.secondary_email) options.push({ label: 'Email Secundario', value: client.secondary_email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
-                                }
+                        {/* 2. SELECCIÓN DE DESTINATARIO */}
+                        <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <UserIcon className="w-3 h-3" /> Seleccionar Destinatario
+                            </label>
+                            <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                {(() => {
+                                    const client = clients.find(c => c.id === formData.client_id)
+                                    const options: any[] = []
 
-                                // Relaciones (Familia/Socios)
-                                if (client.related_contacts && Array.isArray(client.related_contacts)) {
-                                    client.related_contacts.forEach((rel: any) => {
-                                        if (selectorConfig.type === 'whatsapp' && rel.phone) {
-                                            options.push({ label: rel.relation || 'Relacionado', value: rel.phone, icon: <Users className="w-3 h-3" />, name: rel.name })
-                                        } else if (selectorConfig.type === 'email' && rel.email) {
-                                            options.push({ label: rel.relation || 'Relacionado', value: rel.email, icon: <Users className="w-3 h-3" />, name: rel.name })
-                                        }
-                                    })
-                                }
-                            }
-
-                            return options.length > 0 ? options.map((opt, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => {
+                                    if (client) {
                                         if (selectorConfig.type === 'whatsapp') {
-                                            window.open(generateWhatsAppLink(opt.value, selectorConfig.message), '_blank')
+                                            if (client.whatsapp) options.push({ label: 'WhatsApp Principal', value: client.whatsapp, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                            if (client.phone && client.phone !== client.whatsapp) options.push({ label: 'Teléfono Secundario', value: client.phone, icon: <Phone className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                        } else if (selectorConfig.type === 'telegram') {
+                                            if (client.telegram) options.push({ label: 'Telegram Principal', value: client.telegram, icon: <Send className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
                                         } else {
-                                            const subject = encodeURIComponent(selectorConfig.subject || 'Notificación de Seguro')
-                                            const mailto = `mailto:${opt.value}?subject=${subject}&body=${encodeURIComponent(selectorConfig.message)}`
-                                            window.open(mailto, '_blank')
+                                            if (client.email) options.push({ label: 'Email Principal', value: client.email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
+                                            if (client.secondary_email) options.push({ label: 'Email Secundario', value: client.secondary_email, icon: <MailIcon className="w-3 h-3" />, name: `${client.first_name} ${client.last_name}` })
                                         }
-                                        setShowContactSelector(false)
-                                        if (selectorConfig.onSelect) selectorConfig.onSelect(opt)
-                                    }}
-                                    className="w-full p-4 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4 transition-all hover:border-emerald-200 text-left group"
-                                >
-                                    <div className={`p-2 rounded-xl group-hover:scale-110 transition-transform ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                        <UserIcon className="w-4 h-4" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-bold text-slate-900 truncate">{opt.name}</p>
-                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-full">{opt.label}</span>
+
+                                        // Relaciones (Familia/Socios)
+                                        if (client.related_contacts && Array.isArray(client.related_contacts)) {
+                                            client.related_contacts.forEach((rel: any) => {
+                                                if (selectorConfig.type === 'whatsapp' && rel.phone) {
+                                                    options.push({ label: rel.relation || 'Relacionado', value: rel.phone, icon: <Users className="w-3 h-3" />, name: rel.name })
+                                                } else if (selectorConfig.type === 'email' && rel.email) {
+                                                    options.push({ label: rel.relation || 'Relacionado', value: rel.email, icon: <Users className="w-3 h-3" />, name: rel.name })
+                                                }
+                                            })
+                                        }
+                                    }
+
+                                    return options.length > 0 ? options.map((opt, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => {
+                                                if (selectorConfig.type === 'whatsapp') {
+                                                    window.open(generateWhatsAppLink(opt.value, selectorConfig.message), '_blank')
+                                                } else if (selectorConfig.type === 'telegram') {
+                                                    const username = opt.value.replace('@', '')
+                                                    window.open(`https://t.me/${username}?text=${encodeURIComponent(selectorConfig.message)}`, '_blank')
+                                                } else {
+                                                    const subject = encodeURIComponent(selectorConfig.subject || 'Notificación de Seguro')
+                                                    const mailto = `mailto:${opt.value}?subject=${subject}&body=${encodeURIComponent(selectorConfig.message)}`
+                                                    window.open(mailto, '_blank')
+                                                }
+                                                setShowContactSelector(false)
+                                                if (selectorConfig.onSelect) selectorConfig.onSelect(opt)
+                                            }}
+                                            className="w-full p-3 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4 transition-all hover:border-emerald-200 text-left group"
+                                        >
+                                            <div className={`p-2 rounded-xl group-hover:scale-110 transition-transform ${selectorConfig.type === 'whatsapp' ? 'bg-emerald-50 text-emerald-600' : selectorConfig.type === 'telegram' ? 'bg-sky-50 text-sky-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                <UserIcon className="w-4 h-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-slate-900 truncate text-sm">{opt.name}</p>
+                                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-full">{opt.label}</span>
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 font-medium truncate">{opt.value}</p>
+                                            </div>
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <ChevronRight className="w-4 h-4 text-slate-300" />
+                                            </div>
+                                        </button>
+                                    )) : (
+                                        <div className="p-8 text-center space-y-2">
+                                            <p className="text-slate-400 font-medium italic text-xs">No se encontraron contactos para este medio.</p>
                                         </div>
-                                        <p className="text-xs text-slate-400 font-medium truncate">{opt.value}</p>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <ChevronRight className="w-4 h-4 text-slate-300" />
-                                    </div>
-                                </button>
-                            )) : (
-                                <div className="p-8 text-center space-y-2">
-                                    <p className="text-slate-400 font-medium italic">No se encontraron contactos para este medio.</p>
-                                </div>
-                            )
-                        })()}
+                                    )
+                                })()}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        )}
+
+        {showEmailComposer && clients.find(c => c.id === formData.client_id) && (
+            <EmailComposer 
+                isOpen={showEmailComposer}
+                onClose={() => {
+                    setShowEmailComposer(false)
+                    setEmailPreSelectedDocId(undefined)
+                }}
+                client={clients.find(c => c.id === formData.client_id)!}
+                initialCategory={composerData.category}
+                policyData={formData}
+                documents={documents}
+                preSelectedDocId={emailPreSelectedDocId}
+            />
         )}
     </>
     )

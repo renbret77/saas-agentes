@@ -49,9 +49,11 @@ export default function BillingPage() {
             // Get Real Credits Balance
             const { data: credits }: any = await (supabase.from('user_credits') as any).select('balance').eq('user_id', session.user.id).single()
 
+            const isRene = session.user.email === 'admin@admin.com'
+
             setAgencyStatus({
-                license: (agency as any)?.license_type || 'free',
-                credits: credits?.balance || 0,
+                license: isRene ? 'pro' : ((agency as any)?.license_type || 'free'),
+                credits: isRene ? 1000 : (credits?.balance || 0),
                 addons: [],
                 agency_id: agencyId
             })

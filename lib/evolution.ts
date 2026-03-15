@@ -113,6 +113,20 @@ export class EvolutionService {
             linkPreview: true
         });
     }
+
+    /**
+     * Send a document or media via URL
+     */
+    async sendMediaUrl(instanceName: string, number: string, url: string, fileName: string, caption?: string, mediaType: 'document' | 'image' | 'video' = 'document') {
+        const endpoint = mediaType === 'document' ? `/message/sendDocumentUrl/${instanceName}` : `/message/sendMediaUrl/${instanceName}`;
+        return this.request(endpoint, 'POST', {
+            number,
+            url,
+            fileName,
+            mimetype: mediaType === 'document' ? 'application/pdf' : undefined,
+            caption
+        });
+    }
 }
 
 export const evolutionService = new EvolutionService();

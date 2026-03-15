@@ -76,6 +76,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
     const [clientPolicies, setClientPolicies] = useState<any[]>([])
     const [policyStats, setPolicyStats] = useState({ active: 0, pending: 0, total: 0 })
     const [collectionData, setCollectionData] = useState<any[]>([])
+    const [commLogs, setCommLogs] = useState<any[]>([]) // v68: Communication Tracking
     const [policyFilter, setPolicyFilter] = useState<'all' | 'active' | 'renewal' | 'expired'>('all')
 
     useEffect(() => {
@@ -112,6 +113,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
 
                     // Fetch Policies and Collection (v24)
                     fetchClientPolicies(params.id)
+                    fetchCommLogs(params.id) // v68
                 }
             } catch (error) {
                 console.error('Error fetching client:', error)
@@ -150,6 +152,16 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                     setCollectionData(installments || [])
                 }
             }
+        }
+
+        const fetchCommLogs = async (clientId: string) => {
+            const { data: logs } = await supabase
+                .from('communication_logs')
+                .select('*')
+                .eq('client_id', clientId)
+                .order('created_at', { ascending: false })
+            
+            if (logs) setCommLogs(logs)
         }
 
         fetchClient()
@@ -815,7 +827,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                 <h3 className="text-lg font-semibold text-slate-900">Nucleo Familiar y Económico</h3>
                                 <p className="text-sm text-slate-500">Agrega familiares, socios o pagadores relacionados.</p>
                             </div>
-                            <button onClick={addContact} type="button" className="text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                            <button onClick={() => addContact({ name: '', relation: '', email: '', phone: '', job_title: '', department: '', is_payer: false, notify: false })} type="button" className="text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                                 <Plus className="w-4 h-4" /> Agregar Persona
                             </button>
                         </div>
@@ -831,16 +843,21 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
 
                             {(formData.related_contacts as any[])?.map((contact, index) => (
                                 <div key={index} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group transition-all hover:shadow-sm">
-                                    <button
-                                        type="button"
-                                        onClick={() => removeContact(index)}
-                                        className="absolute top-4 right-4 text-slate-400 hover:text-rose-500 transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate max-w-[200px]">
+                                            {contact.name || 'Nueva Persona'}
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeContact(index)}
+                                            className="text-slate-400 hover:text-rose-500 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                        <div className="md:col-span-4 space-y-1">
+                                        <div className="md:col-span-6 space-y-1">
                                             <label className="text-xs font-medium text-slate-500">Nombre Completo</label>
                                             <input
                                                 value={contact.name}
@@ -849,7 +866,7 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                                 placeholder="Ej. Juan Pérez"
                                             />
                                         </div>
-                                        <div className="md:col-span-3 space-y-1">
+                                        <div className="md:col-span-6 space-y-1">
                                             <label className="text-xs font-medium text-slate-500">Parentesco / Relación</label>
                                             <select
                                                 value={contact.relation}
@@ -862,28 +879,48 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                                 <option value="conyuge">Cónyuge</option>
                                                 <option value="socio">Socio Comercial</option>
                                                 <option value="empleado">Empleado</option>
+                                                <option value="gerente">Gerente / Director</option>
                                                 <option value="otro">Otro</option>
                                             </select>
                                         </div>
-                                        <div className="md:col-span-5 grid grid-cols-2 gap-2">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-medium text-slate-500">Email</label>
-                                                <input
-                                                    value={contact.email}
-                                                    onChange={(e) => updateContact(index, 'email', e.target.value)}
-                                                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm"
-                                                    placeholder="email@ejemplo.com"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-medium text-slate-500">Teléfono</label>
-                                                <input
-                                                    value={contact.phone}
-                                                    onChange={(e) => updateContact(index, 'phone', e.target.value)}
-                                                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm"
-                                                    placeholder="555-..."
-                                                />
-                                            </div>
+
+                                        <div className="md:col-span-6 space-y-1">
+                                            <label className="text-xs font-medium text-slate-500">Puesto / Cargo</label>
+                                            <input
+                                                value={contact.job_title || ''}
+                                                onChange={(e) => updateContact(index, 'job_title', e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm"
+                                                placeholder="Ej. Gerente de Finanzas"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-6 space-y-1">
+                                            <label className="text-xs font-medium text-slate-500">Departamento</label>
+                                            <input
+                                                value={contact.department || ''}
+                                                onChange={(e) => updateContact(index, 'department', e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm"
+                                                placeholder="Ej. Compras / Logística"
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-6 space-y-1">
+                                            <label className="text-xs font-medium text-slate-500">Teléfono (WhatsApp)</label>
+                                            <PhoneInput
+                                                international
+                                                defaultCountry="MX"
+                                                value={contact.phone || undefined}
+                                                onChange={(val) => updateContact(index, 'phone', val)}
+                                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm bg-white shadow-sm"
+                                            />
+                                        </div>
+                                        <div className="md:col-span-6 space-y-1">
+                                            <label className="text-xs font-medium text-slate-500">Email</label>
+                                            <input
+                                                value={contact.email}
+                                                onChange={(e) => updateContact(index, 'email', e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm"
+                                                placeholder="email@ejemplo.com"
+                                            />
                                         </div>
                                     </div>
 
@@ -1241,6 +1278,90 @@ export default function EditClientPage(props: { params: Promise<{ id: string }> 
                                     <Link href="/dashboard/policies/new" className="mt-4 inline-flex items-center gap-2 text-emerald-600 font-black text-xs uppercase tracking-widest hover:text-emerald-700">
                                         Cargar Primera Póliza <Plus className="w-4 h-4" />
                                     </Link>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 5. COMUNICACIONES Y TRAZABILIDAD (v68) */}
+                {activeTab === 'comunicaciones' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.25em] flex items-center gap-2">
+                                <MailIcon className="w-4 h-4 text-indigo-500" /> Trazabilidad de Mensajes
+                            </h3>
+                            <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase tracking-widest border border-indigo-100">
+                                {commLogs.length} ENVÍOS REGISTRADOS
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            {commLogs.length > 0 ? (
+                                commLogs.map((log) => (
+                                    <div key={log.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:border-indigo-200 transition-all group overflow-hidden relative">
+                                        {/* Status Accent */}
+                                        <div className={`absolute top-0 right-0 w-16 h-16 opacity-5 group-hover:scale-150 transition-transform ${log.status === 'opened' ? 'text-emerald-500' : 'text-slate-200'}`}>
+                                            <Sparkles className="w-full h-full" />
+                                        </div>
+
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${
+                                                    log.category === 'renewal' ? 'bg-amber-50 text-amber-600' :
+                                                    log.category === 'birthday' ? 'bg-pink-50 text-pink-600' :
+                                                    log.category === 'new_policy' ? 'bg-emerald-50 text-emerald-600' :
+                                                    'bg-slate-50 text-slate-600'
+                                                }`}>
+                                                    {log.type === 'email' ? <MailIcon className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{log.subject || 'Sin asunto'}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[9px] font-bold text-slate-400 font-mono italic">{new Date(log.created_at).toLocaleString()}</span>
+                                                        <span className="text-[8px] text-slate-300">•</span>
+                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.category}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-8">
+                                                <div className="text-center">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Estatus</p>
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${
+                                                        log.status === 'opened' ? 'bg-emerald-100 text-emerald-700' :
+                                                        log.status === 'sent' ? 'bg-indigo-50 text-indigo-600' :
+                                                        log.status === 'failed' ? 'bg-rose-50 text-rose-600' :
+                                                        'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        {log.status === 'opened' ? '✓✓ ABIERTO' : 
+                                                         log.status === 'sent' ? '✓ ENVIADO' : 
+                                                         log.status === 'failed' ? '✕ FALLIDO' : '... PENDIENTE'}
+                                                    </span>
+                                                </div>
+
+                                                {log.status === 'opened' && (
+                                                    <div className="text-right">
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Interacción</p>
+                                                        <div className="flex flex-col items-end">
+                                                            <div className="flex items-center gap-1.5 text-emerald-600 font-black text-xs">
+                                                                <Clock className="w-3.5 h-3.5" /> {log.open_count} VECES
+                                                            </div>
+                                                            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">Última: {new Date(log.last_opened_at).toLocaleTimeString()}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="py-20 text-center bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
+                                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                                        <MailIcon className="w-8 h-8 text-slate-200" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Cero comunicaciones registradas</p>
+                                    <p className="text-xs text-slate-300 mt-2">Empieza a mandar correos desde la Cartera 360 para ver la trazabilidad.</p>
                                 </div>
                             )}
                         </div>

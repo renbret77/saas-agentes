@@ -166,6 +166,13 @@ export const getCollectionMessage = (
         receiptBlock = `\n${eMemo} *TU RECIBO OFICIAL:* \n${brandedLink}\n`
     }
 
+    // v36: Manejo especial sin periodo de gracia
+    if (graceDays === 0 && (isOverdue || isGracePeriod)) {
+        mainAction = 'PAGO VENCIDO - SIN PRÓRROGA'
+        alertIcon = eNoEntry
+        urgencyNote = `\n\n${eAlert} *AVISO CRÍTICO:* Esta póliza *no cuenta con periodo de gracia*. El pago debe verse reflejado de inmediato para evitar la cancelación automática.`
+    }
+
     const message = [
         `${alertIcon} *${mainAction}* ${alertIcon}`,
         '',
@@ -194,7 +201,6 @@ export const getCollectionMessage = (
 
 /**
  * Genera el copy de WhatsApp para Recordatorios de Pre-Renovación (v30)
- * Orientado a avisar que la póliza VENCE PRONTO.
  */
 export const getPreRenewalMessage = (
     clientName: string,
@@ -217,6 +223,32 @@ ${eShield} *Ramo:* ${policyType}
 ${eCalendar} *Vencimiento:* *${formatDate(endDate)}*
  
 ¿Gustas que revisemos la propuesta para este nuevo periodo? ${eSmile}`
+}
+
+/**
+ * Genera un aviso preventivo con 21 días de antelación (v36)
+ */
+export const getHeadsUpMessage = (
+    clientName: string,
+    policyType: string,
+    insurerName: string,
+    startDate: string,
+    amount: number,
+    currencySymbol: string = '$'
+) => {
+    return [
+        `${eBell} *TU PROTECCIÓN SE RENUEVA PRONTO* ${eBell}`,
+        '',
+        `Hola *${clientName}*, ¡un gusto saludarte! ${eWave}`,
+        '',
+        `Te escribimos para avisarte con tiempo que el **${formatDate(startDate)}** inicia el nuevo periodo de tu protección de **${policyType}** con **${insurerName}**.`,
+        '',
+        `El monto estimado de tu próximo recibo es de *${currencySymbol}${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}*.`,
+        '',
+        `No es necesario que realices ninguna acción ahora, solo queríamos mantenerte informado para que lo consideres en tu presupuesto. ${eSmile}`,
+        '',
+        `¡Seguimos a tus órdenes!`
+    ].join('\n')
 }
 
 /**

@@ -294,16 +294,51 @@ export const INSURANCE_TEMPLATES = {
     auto: {
         title: "Protección Total en el Camino",
         subtitle: "Seguridad y respaldo absoluto para ti y tu familia en cada kilómetro.",
-        hero: "/hero_auto_insurance.png",
+        hero: "/hero_auto_v2_luxury_drive_1773130000010_1773164635329.png",
         varieties: [
-            "/hero_auto_insurance.png",
+            "/hero_auto_insurance_1773122299042.png",
             "/hero_auto_v2_luxury_drive_1773130000010_1773164635329.png"
         ],
         description: "El seguro de auto más completo para vehículos individuales y flotillas, con atención nacional 24/7.",
+        story: {
+            problem: "Un accidente vial ocurre en México cada minuto. Sin seguro, un choque por alcance puede costar más que el auto mismo.",
+            agitate: "No es solo el golpe; es la responsabilidad civil, los hospitales y el riesgo de terminar en el ministerio público.",
+            solution: "Blindamos tu camino con asistencia legal 24/7, pago inmediato de daños y red de talleres premium certificados."
+        },
         benefits: [
             { title: "Cero Deducible", desc: "Opciones con 0% deducible en robo total y daños materiales." },
             { title: "Asistencia Vial", desc: "Grúa, paso de corriente y cerrajería ilimitada." },
             { title: "Auto Substituto", desc: "No te quedes a pie mientras tu auto está en el taller." }
+        ],
+        optional_coverages: [
+            { 
+                id: "agency_repair", 
+                name: "Reparación en Agencia", 
+                price: 1850, 
+                image: "/hero_talleres_v1_mechanic_1773130000008_1773164602198.png",
+                description: "Garantiza que tu auto sea reparado con piezas originales en la agencia de tu marca, manteniendo su valor." 
+            },
+            { 
+                id: "parts_theft", 
+                name: "Robo de Autopartes", 
+                price: 1250, 
+                image: "/hero_talleres_v2_tools_detail_1773130000009_1773164616979.png",
+                description: "Cubre espejos, llantas, calaveras y estéreo contra robo parcial con 0% deducible y sin trámites lentos." 
+            },
+            { 
+                id: "auto_sub", 
+                name: "Auto Sustituto Plus", 
+                price: 940, 
+                image: "/hero_auto_insurance_1773122299042.png",
+                description: "No te quedes sin moverte. Te entregamos un auto compacto por hasta 15 días tras un siniestro o reparación larga." 
+            },
+            { 
+                id: "tires_rims", 
+                name: "Llantas y Rines Premium", 
+                price: 1100, 
+                image: "/hero_rc_contratista_v3_machinery_1773130000015_1773164724099.png",
+                description: "Protección total contra baches y banquetazos que dañen tu suspensión, rines o neumáticos en cualquier ciudad." 
+            }
         ],
         faq: [
             { q: "¿Es obligatorio el seguro?", a: "Sí, es obligatorio contar al menos con Responsabilidad Civil para circular en caminos federales." },

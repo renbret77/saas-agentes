@@ -1,17 +1,26 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, FileText, DollarSign, Activity, TrendingUp, ArrowUpRight, Plus, Sparkles, MessageSquare, Download } from "lucide-react"
+import { Users, FileText, DollarSign, Activity, TrendingUp, ArrowUpRight, Plus, Sparkles, MessageSquare, Download, Video, Loader2, Target, Quote, Star } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import RenewalAlerts from "@/components/dashboard/overview/renewal-alerts"
 import BranchDistribution from "@/components/dashboard/overview/branch-distribution"
 import CollectionTimeline from "@/components/dashboard/overview/collection-timeline"
-import OpportunityWidget from "@/components/dashboard/OpportunityWidget"
+import OpportunityAIWidget from "@/components/dashboard/OpportunityAIWidget"
+import OpportunitiesCenter from "@/components/dashboard/OpportunitiesCenter"
+import ClientProtectionMap from "@/components/dashboard/ClientProtectionMap"
 import { OnboardingTour } from "@/components/dashboard/onboarding-tour"
 import CapatazStatusWidget from "@/components/dashboard/CapatazStatusWidget"
 import CriticalTasksWidget from "@/components/dashboard/CriticalTasksWidget"
 import ClaimsTrackingWidget from "@/components/dashboard/ClaimsTrackingWidget"
+import RemindersWidget from "@/components/dashboard/RemindersWidget"
+import VoiceCommandInterface from "@/components/dashboard/VoiceCommandInterface"
+import VideoProposalManager from "@/components/dashboard/VideoProposalManager"
+import QuotaUsageWidget from "@/components/dashboard/QuotaUsageWidget"
 import Link from "next/link"
+import { generateAgentExecutiveSummary, fetchAgentSummaryData } from "@/lib/agent-summary-generator"
+import AIBriefingWidget from "@/components/dashboard/AIBriefingWidget"
+import SuperQuotePreview from "@/components/dashboard/SuperQuotePreview"
 
 export default function DashboardPage() {
     const [stats, setStats] = useState({
@@ -114,13 +123,37 @@ export default function DashboardPage() {
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 mb-2">
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">En Conexión</span>
-                        <span className="text-slate-400 text-[10px font-medium underline decoration-slate-200 underline-offset-4">ID Agency: RB-2026-X</span>
+                        <span className="text-slate-400 text-[10px] font-medium underline decoration-slate-200 underline-offset-4">ID Agency: RB-2026-X</span>
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tight">Focus <span className="text-emerald-600">Center</span></h1>
-                    <p className="text-slate-500 font-medium">RB Proyectos: Inteligencia Artificial aplicada a tu Cartera.</p>
+                    <p className="text-slate-500 font-medium max-w-2xl">
+                        El sistema que te ayuda a ganar más dinero, detectar oportunidades, ahorrar tiempo y <span className="text-indigo-600 font-bold italic">trabaja mejor que tú</span>.
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={async () => {
+                            try {
+                                const data = await fetchAgentSummaryData("Rene Breton"); // Hardcoded for now, should come from auth
+                                const blob = await generateAgentExecutiveSummary(data);
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `Resumen_Ejecutivo_${new Date().toISOString().split('T')[0]}.pdf`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(url);
+                            } catch (error) {
+                                console.error("Error generating report:", error);
+                                alert("Ocurrió un error al generar el reporte ejecutivo.");
+                            }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition-all shadow-lg active:scale-95 h-9"
+                    >
+                        <FileText className="w-3 h-3" /> Reporte Ejecutivo
+                    </button>
                     <button
                         onClick={async () => {
                             const { data: clients } = await supabase.from('clients').select('*');
@@ -152,6 +185,9 @@ export default function DashboardPage() {
                     </button>
                     <Link href="/dashboard/import" className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95 h-9">
                         <ArrowUpRight className="w-3 h-3" /> Importar SICAS
+                    </Link>
+                    <Link href="/quote/presentation/auto-demo" className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-200 active:scale-95 h-9">
+                        <Star className="w-3 h-3" /> Presentación Omni Elite
                     </Link>
                     <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 h-9">
                         <Plus className="w-3 h-3" /> Nueva Cotización
@@ -189,38 +225,68 @@ export default function DashboardPage() {
 
                     {/* Zona Focus: Siniestros y Renovaciones */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
-                            <ClaimsTrackingWidget />
-                        </div>
+                        <OpportunitiesCenter />
                         <div className="bg-white/90 backdrop-blur-md rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
                             <RenewalAlerts policies={policiesData} />
                         </div>
                     </div>
 
-                    {/* Tareas Críticas (SICAS Killer) */}
-                    <div className="mb-8">
-                        <CriticalTasksWidget />
+                    {/* Mapa de Protección & Tareas Críticas */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                        <div className="lg:col-span-1">
+                            <ClientProtectionMap policies={policiesData} />
+                        </div>
+                        <div className="lg:col-span-2">
+                            <CriticalTasksWidget />
+                        </div>
                     </div>
                 </div>
 
                 {/* Right Column: AI Hub & Widgets */}
                 <div className="xl:col-span-1 space-y-8">
-                    {/* Capataz Hub (NUEVO) */}
-                    <CapatazStatusWidget />
+                    {/* Executive Briefing NEW */}
+                    <AIBriefingWidget />
 
-                    {/* Distribución de Cartera */}
+                    {/* Super Cotizador RPA Preview NEW */}
+                    <SuperQuotePreview />
+
+                    {/* Recordatorios IA */}
+                    <RemindersWidget />
+                    
+                    {/* Seguimiento del Plan (v84) */}
+                    <QuotaUsageWidget />
+
                     <div className="bg-white/80 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-slate-900">Ramos de Venta</h3>
-                            <button className="text-[10px] font-black uppercase text-emerald-600 hover:underline">Ver Todo</button>
-                        </div>
-                        <BranchDistribution policies={policiesData} />
+                        <ClaimsTrackingWidget />
                     </div>
+                </div>
+            </div>
 
-                    {/* Sales Intelligence */}
-                    <div className="bg-slate-50 rounded-[2.5rem] p-1 border border-slate-200/50">
-                        <OpportunityWidget />
+            {/* Sales Intelligence & Engagement (Full Width Section Below) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12 pb-20">
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                            IA de Crecimiento
+                            <Sparkles className="w-4 h-4 text-amber-500" />
+                        </h3>
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[9px] font-black border border-amber-100">
+                             PERSUASIÓN ACTIVA
+                        </div>
                     </div>
+                    <OpportunityAIWidget />
+                </div>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                            Video Engagement
+                            <Video className="w-4 h-4 text-indigo-500" />
+                        </h3>
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[9px] font-black border border-indigo-100">
+                             V-PROP
+                        </div>
+                    </div>
+                    <VideoProposalManager />
                 </div>
             </div>
 

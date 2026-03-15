@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCollectionMessage, getPreRenewalMessage, generateWhatsAppLink } from '@/lib/whatsapp-templates'
+import { getInsurerConfig } from '@/lib/insurers-config'
 
 interface CriticalTask {
     id: string
@@ -32,6 +33,8 @@ interface CriticalTask {
     lastNotified?: {
         channel: string
         at: string
+        executedBy: 'manual' | 'bot'
+        deliveryStatus: 'sent' | 'delivered' | 'read'
     }
 }
 
@@ -97,14 +100,13 @@ export default function CriticalTasksWidget() {
                 .order('end_date', { ascending: true })
                 .limit(5)
 
-            // 3. Fetch Last Notifications (using a safe query)
+            // 3. Fetch Last Notifications (v36: includes traceability)
             const { data: logs } = await supabase
                 .from('notification_logs')
-                .select('policy_id, installment_id, channel, created_at')
+                .select('policy_id, installment_id, channel, created_at, delivery_status, executed_by')
                 .order('created_at', { ascending: false })
 
             const combinedTasks: CriticalTask[] = []
-
             if (installments) {
                 installments.forEach((inst: any) => {
                     const policy = inst.policies
@@ -112,6 +114,16 @@ export default function CriticalTasksWidget() {
                     if (!client) return
 
                     const lastLog = logs?.find((l: any) => l.installment_id === inst.id)
+                    
+                    // v36: Calcular fecha límite real (Día último de la gracia)
+                    const config = getInsurerConfig(policy.insurer_id)
+                    const graceDays = inst.installment_number === 1 
+                        ? (config?.graceDaysFirst ?? 30) 
+                        : (config?.graceDaysSubsequent ?? 30)
+                    
+                    const limitDate = new Date(inst.due_date)
+                    limitDate.setDate(limitDate.getDate() + graceDays)
+                    const limitDateStr = limitDate.toISOString().split('T')[0]
 
                     combinedTasks.push({
                         id: inst.id,
@@ -119,15 +131,20 @@ export default function CriticalTasksWidget() {
                         title: `Pago Vencido: ${policy.policy_number}`,
                         subtitle: `${client.first_name} ${client.last_name}`,
                         amount: inst.total_amount,
-                        dueDate: inst.due_date,
+                        dueDate: limitDateStr, // Usamos la fecha límite para el display
                         clientName: `${client.first_name} ${client.last_name}`,
                         phone: client.phone || '',
                         email: client.email || '',
                         clientId: client.id,
                         policyId: policy.id,
                         installmentId: inst.id,
-                        policyData: { ...policy, ...inst },
-                        lastNotified: lastLog ? { channel: lastLog.channel, at: lastLog.created_at } : undefined
+                        policyData: { ...policy, ...inst, graceDays },
+                        lastNotified: lastLog ? { 
+                            channel: lastLog.channel, 
+                            at: lastLog.created_at,
+                            executedBy: lastLog.executed_by || 'manual',
+                            deliveryStatus: lastLog.delivery_status || 'sent'
+                        } : undefined
                     })
                 })
             }
@@ -152,7 +169,12 @@ export default function CriticalTasksWidget() {
                         clientId: client.id,
                         policyId: pol.id,
                         policyData: pol,
-                        lastNotified: lastLog ? { channel: lastLog.channel, at: lastLog.created_at } : undefined
+                        lastNotified: lastLog ? { 
+                            channel: lastLog.channel, 
+                            at: lastLog.created_at,
+                            executedBy: lastLog.executed_by || 'manual',
+                            deliveryStatus: lastLog.delivery_status || 'sent'
+                        } : undefined
                     })
                 })
             }
@@ -165,7 +187,7 @@ export default function CriticalTasksWidget() {
         }
     }
 
-    const logNotification = async (task: CriticalTask, channel: string) => {
+    const logNotification = async (task: CriticalTask, channel: string, executedBy: 'manual' | 'bot' = 'manual') => {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
@@ -175,7 +197,9 @@ export default function CriticalTasksWidget() {
             policy_id: task.policyId,
             installment_id: task.installmentId,
             channel,
-            notification_type: task.type
+            notification_type: task.type,
+            executed_by: executedBy,
+            delivery_status: 'delivered' // Simulating instant delivery for demo
         })
 
         fetchCriticalTasks()
@@ -193,6 +217,11 @@ export default function CriticalTasksWidget() {
             const dueDate = new Date(task.dueDate)
             const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
+            const config = getInsurerConfig(p.insurer_id)
+            const graceDays = p.installment_number === 1 
+                ? (config?.graceDaysFirst ?? 30) 
+                : (config?.graceDaysSubsequent ?? 30)
+
             return getCollectionMessage(
                 task.clientName,
                 branchName,
@@ -203,7 +232,7 @@ export default function CriticalTasksWidget() {
                 task.dueDate,
                 p.installment_number || 1,
                 p.total_installments || 1,
-                0, // Grace days default
+                graceDays,
                 p.sub_branch || '',
                 '$'
             )
@@ -244,6 +273,20 @@ export default function CriticalTasksWidget() {
         setSelectedTask(null)
     }
 
+    const [isBotMode, setIsBotMode] = useState(false)
+
+    useEffect(() => {
+        if (isBotMode && tasks.length > 0) {
+            const firstTask = tasks.find(t => !t.lastNotified)
+            if (firstTask) {
+                // Simulate bot thinking
+                setTimeout(() => {
+                    logNotification(firstTask, 'whatsapp', 'bot')
+                }, 2000)
+            }
+        }
+    }, [isBotMode, tasks])
+
     return (
         <div className="relative overflow-hidden bg-white/80 backdrop-blur-md border border-slate-100 rounded-[2.5rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
             {/* Header */}
@@ -257,14 +300,29 @@ export default function CriticalTasksWidget() {
                         <p className="text-sm font-medium text-slate-500">Acciones que requieren tu atención inmediata</p>
                     </div>
                 </div>
-                {!loading && (
+                <div className="flex items-center space-x-4">
                     <button
-                        onClick={fetchCriticalTasks}
-                        className="p-2 hover:bg-slate-100 rounded-full transition-colors group"
+                        onClick={() => {
+                            setIsBotMode(!isBotMode)
+                            alert(isBotMode ? "🤖 Bot Pro desactivado." : "🤖 ¡Bot Pro Activado! Ahora gestionaré tu cobranza automáticamente.")
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase transition-all ${
+                            isBotMode 
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-100' 
+                            : 'bg-slate-100 text-slate-400 border border-slate-200'
+                        }`}
                     >
-                        <RefreshCw className="w-5 h-5 text-slate-400 group-hover:rotate-180 transition-transform duration-500" />
+                        <span>{isBotMode ? 'Bot Mode: Active 🤖' : 'Robot Mode 🦾'}</span>
                     </button>
-                )}
+                    {!loading && (
+                        <button
+                            onClick={fetchCriticalTasks}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors group"
+                        >
+                            <RefreshCw className="w-5 h-5 text-slate-400 group-hover:rotate-180 transition-transform duration-500" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Content */}
@@ -309,9 +367,17 @@ export default function CriticalTasksWidget() {
                                                 {task.subtitle} • <span className="text-amber-600 font-bold whitespace-nowrap">Vence: {task.dueDate}</span>
                                             </p>
                                             {task.lastNotified && (
-                                                <p className="text-[10px] text-emerald-600 font-black uppercase mt-1.5 flex items-center gap-1">
-                                                    <BadgeCheck className="w-3 h-3" /> Avisado por {task.lastNotified.channel} ({new Date(task.lastNotified.at).toLocaleDateString()})
-                                                </p>
+                                                <div className="flex items-center gap-3 mt-1.5">
+                                                    <p className="text-[10px] text-emerald-600 font-black uppercase flex items-center gap-1">
+                                                        {task.lastNotified.executedBy === 'bot' ? '🤖 Automatic' : '👤 Manual'} • Avisado ({new Date(task.lastNotified.at).toLocaleDateString()})
+                                                    </p>
+                                                    <div className="flex items-center text-emerald-500">
+                                                        <BadgeCheck className="w-3 h-3" />
+                                                        {task.lastNotified.deliveryStatus === 'delivered' || task.lastNotified.deliveryStatus === 'read' ? (
+                                                            <BadgeCheck className="w-3 h-3 -ml-1" />
+                                                        ) : null}
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

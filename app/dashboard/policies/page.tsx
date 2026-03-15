@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw, Link as LinkIcon, Users, Check, Mail as MailIcon } from "lucide-react"
+import { Plus, Search, Shield, Calendar, Building2, User, MessageCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, DollarSign, CreditCard, Info, FileText, Trash2, MessageSquare, Mail, RefreshCw, Link as LinkIcon, Users, Check, Mail as MailIcon, Eye, Send } from "lucide-react"
+import EmailComposer from "@/components/dashboard/EmailComposer"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
@@ -25,11 +26,21 @@ export default function PoliciesPage() {
     // v2.5: Notificaciones Multi-Medio
     const [showContactSelector, setShowContactSelector] = useState(false)
     const [selectorConfig, setSelectorConfig] = useState<{
-        type: 'whatsapp' | 'email',
+        type: 'whatsapp' | 'email' | 'telegram',
         message: string,
         subject?: string,
         clientData: any
     } | null>(null)
+    const [showEmailComposer, setShowEmailComposer] = useState(false)
+    const [emailPreSelectedDocId, setEmailPreSelectedDocId] = useState<string | undefined>()
+    const [composerData, setComposerData] = useState<any>({
+        to: '',
+        subject: '',
+        content: '',
+        category: 'manual',
+        client_id: '',
+        policy_id: ''
+    })
     const [generatingPDF, setGeneratingPDF] = useState<string | null>(null) // v34: ID de la póliza en proceso
     
     // v35: Borrado Seguro de Documentos
@@ -78,7 +89,7 @@ export default function PoliciesPage() {
                 .from('policies')
                 .select(`
                     *,
-                    clients (first_name, last_name, phone, whatsapp, additional_phones, additional_emails),
+                    clients (first_name, last_name, phone, whatsapp, email, secondary_email, additional_phones, additional_emails, related_contacts),
                     insurers (name, alias),
                     insurance_lines (name),
                     policy_installments (id, installment_number, total_amount, status, whatsapp_sent, whatsapp_status, due_date),
@@ -477,28 +488,88 @@ export default function PoliciesPage() {
                                                                                             <span className="text-[10px] font-bold text-slate-700">{doc.document_type}</span>
                                                                                             <span className="text-[8px] text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</span>
                                                                                         </div>
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <a
-                                                                                                href={doc.file_url}
-                                                                                                target="_blank"
-                                                                                                rel="noreferrer"
-                                                                                                className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
-                                                                                                title="Ver documento"
-                                                                                            >
-                                                                                                <ChevronRight className="w-4 h-4" />
-                                                                                            </a>
-                                                                                            <button
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    setDeletingDocId(doc.id);
-                                                                                                    setDeletePhrase("");
-                                                                                                }}
-                                                                                                className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
-                                                                                                title="Borrar documento"
-                                                                                            >
-                                                                                                <Trash2 className="w-4 h-4" />
-                                                                                            </button>
-                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                            <a
+                                                                href={doc.file_url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-lg transition-all"
+                                                                title="Ver documento"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </a>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id);
+                                                                    
+                                                                    setEmailPreSelectedDocId(doc.id);
+                                                                    setComposerData({
+                                                                        to: policy.clients?.email || (policy.clients as any).additional_emails?.[0]?.email || '',
+                                                                        subject: `Documento de Seguro: ${doc.document_type} - ${policy.policy_number}`,
+                                                                        content: `Hola ${policy.clients?.first_name},\n\nTe adjunto tu ${doc.document_type} de la póliza ${policy.policy_number}.\n\nPuedes verla aquí: ${brandedLink}\n\nQuedamos a tus órdenes.`,
+                                                                        category: 'manual',
+                                                                        client_id: policy.client_id,
+                                                                        policy_id: policy.id
+                                                                    });
+                                                                    setShowEmailComposer(true);
+                                                                }}
+                                                                className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-all"
+                                                                title="Enviar por Correo"
+                                                            >
+                                                                <MailIcon className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id);
+                                                                    const msg = getDirectLinkMessage(clientName, brandedLink);
+                                                                    
+                                                                    setSelectorConfig({
+                                                                        type: 'whatsapp',
+                                                                        message: msg,
+                                                                        clientData: policy.clients
+                                                                    });
+                                                                    setShowContactSelector(true);
+                                                                }}
+                                                                className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
+                                                                title="Enviar por WhatsApp"
+                                                            >
+                                                                <MessageCircle className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const clientName = `${policy.clients?.first_name} ${policy.clients?.last_name}`;
+                                                                    const brandedLink = getBrandedViewerLink(doc.file_url, clientName, doc.document_type, doc.id);
+                                                                    const msg = `Hola ${clientName}, te mando tu ${doc.document_type}: ${brandedLink}`;
+                                                                    
+                                                                    setSelectorConfig({
+                                                                        type: 'telegram',
+                                                                        message: msg,
+                                                                        clientData: policy.clients
+                                                                    });
+                                                                    setShowContactSelector(true);
+                                                                }}
+                                                                className="p-1.5 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-all"
+                                                                title="Enviar por Telegram"
+                                                            >
+                                                                <Send className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDeletingDocId(doc.id);
+                                                                    setDeletePhrase("");
+                                                                }}
+                                                                className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
+                                                                title="Borrar documento"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                                                     </div>
                                                                                 ))}
                                                                         </div>
@@ -754,7 +825,7 @@ export default function PoliciesPage() {
 
             {/* Version Footer */}
             <div className="flex items-center justify-between pt-8 border-t border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.11-03-2026 08:30 PM</span>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest">v.13-03-2026 02:40 PM (v2.9.2)</span>
                 <span className="text-[10px] font-bold text-slate-300">© 2026 Portal SaaS</span>
             </div>
 
@@ -909,6 +980,22 @@ export default function PoliciesPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Email Composer (v2.9.2) */}
+            {showEmailComposer && (
+                <EmailComposer 
+                    isOpen={showEmailComposer}
+                    onClose={() => {
+                        setShowEmailComposer(false)
+                        setEmailPreSelectedDocId(undefined)
+                    }}
+                    client={policies.find(p => p.client_id === composerData.client_id)?.clients || {}}
+                    initialCategory={composerData.category}
+                    policyData={policies.find(p => p.id === composerData.policy_id)}
+                    documents={policies.find(p => p.id === composerData.policy_id)?.policy_documents || []}
+                    preSelectedDocId={emailPreSelectedDocId}
+                />
             )}
         </div>
     )

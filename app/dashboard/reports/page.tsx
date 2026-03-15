@@ -26,6 +26,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
+import GlobalAnalytics from "@/components/dashboard/GlobalAnalytics"
 
 export default function ReportsPage() {
     const [filters, setFilters] = useState<{
@@ -290,6 +291,9 @@ export default function ReportsPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Global Funnel Flow NEW */}
+            <GlobalAnalytics />
 
             {/* Quick KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

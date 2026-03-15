@@ -14,6 +14,7 @@ import {
     getPreRenewalMessage, 
     generateWhatsAppLink 
 } from "@/lib/whatsapp-templates"
+import { checkQuota } from "@/lib/quotas"
 
 export default function NewPolicyPage() {
     const router = useRouter()
@@ -618,6 +619,17 @@ export default function NewPolicyPage() {
 
         setLoading(true)
         try {
+            // --- ANTI-AGANDALLE QUOTA CHECK (v84) ---
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const quota = await checkQuota(user.id, 'max_policies')
+                if (!quota.allowed) {
+                    alert(quota.message)
+                    setLoading(false)
+                    return
+                }
+            }
+
             // --- DETECCIÓN DE DUPLICADOS (v27.1) ---
             const { data: existingPolicy } = await supabase
                 .from('policies')

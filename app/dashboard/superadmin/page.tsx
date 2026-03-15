@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { ShieldCheck, Users, Briefcase, Plus, Search, Activity, PhoneOff, CheckCircle2, ShieldAlert, X, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
-import { createAgencyAndAdmin, updateAgencyStatus } from "./actions"
+import { createAgencyAndAdmin, updateAgencyStatus, addAgencyCredits } from "./actions"
+import { Sparkles, Coins } from "lucide-react"
 
 export default function SuperAdminPage() {
     const [agencies, setAgencies] = useState<any[]>([])
@@ -12,6 +13,12 @@ export default function SuperAdminPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [errorMsg, setErrorMsg] = useState("")
+    const [rechargeModal, setRechargeModal] = useState<{ isOpen: boolean, agencyId: string, agencyName: string, amount: number }>({
+        isOpen: false,
+        agencyId: "",
+        agencyName: "",
+        amount: 50
+    })
 
     useEffect(() => {
         fetchAgencies()
@@ -24,12 +31,26 @@ export default function SuperAdminPage() {
             .from('agencies')
             .select(`
                 *,
-                profiles (count)
+                profiles (
+                   id,
+                   role,
+                   user_credits (balance)
+                )
             `)
             .order('created_at', { ascending: false })
 
         if (!error && data) {
-            setAgencies(data)
+            // Aplanar los créditos del admin para facilitar el render
+            const processed = data.map((agency: any) => {
+                const adminProfile = agency.profiles.find((p: any) => p.role === 'admin')
+                return {
+                    ...agency,
+                    admin_credits: adminProfile?.user_credits?.[0]?.balance || 0,
+                    user_id: adminProfile?.id,
+                    user_count: agency.profiles.length
+                }
+            })
+            setAgencies(processed)
         }
         setLoading(false)
     }
@@ -57,6 +78,18 @@ export default function SuperAdminPage() {
         const newStatus = currentStatus === 'active' ? 'suspended' : 'active'
         await updateAgencyStatus(agencyId, newStatus)
         fetchAgencies()
+    }
+
+    const handleRecharge = async () => {
+        setIsSubmitting(true)
+        const res = await addAgencyCredits(rechargeModal.agencyId, rechargeModal.amount)
+        if (res.error) {
+            alert(res.error)
+        } else {
+            setRechargeModal({ ...rechargeModal, isOpen: false })
+            fetchAgencies()
+        }
+        setIsSubmitting(false)
     }
 
     return (
@@ -145,7 +178,8 @@ export default function SuperAdminPage() {
                             <tr>
                                 <th className="px-6 py-4">Agencia / Promotoría</th>
                                 <th className="px-6 py-4">Nivel de Licencia</th>
-                                <th className="px-6 py-4">Teléfono Admin (Anti-Abuso)</th>
+                                <th className="px-6 py-4">Créditos IA</th>
+                                <th className="px-6 py-4">Teléfono Admin</th>
                                 <th className="px-6 py-4">Límites</th>
                                 <th className="px-6 py-4">Estatus</th>
                                 <th className="px-6 py-4 text-right">Acciones</th>
@@ -172,14 +206,29 @@ export default function SuperAdminPage() {
                                             {agency.license_type}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600 font-medium">
-                                        {agency.admin_phone ? agency.admin_phone : <span className="text-slate-400 italic">No verificado</span>}
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                                                <Coins className="w-4 h-4" />
+                                            </div>
+                                            <span className="font-black text-slate-900">{agency.admin_credits}</span>
+                                            <button 
+                                                onClick={() => setRechargeModal({ isOpen: true, agencyId: agency.id, agencyName: agency.name, amount: 50 })}
+                                                className="ml-2 p-1 hover:bg-slate-100 rounded text-indigo-600 transition-colors"
+                                                title="Recargar Créditos"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                                        {agency.admin_phone ? agency.admin_phone : <span className="text-slate-400 italic">N/A</span>}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1 text-xs">
-                                            <span className="text-slate-600">Usuarios: {agency.profiles?.[0]?.count || 0}/{agency.max_users}</span>
+                                            <span className="text-slate-600">Usuarios: {agency.user_count}/{agency.max_users}</span>
                                             {agency.license_type === 'free' && (
-                                                <span className="text-rose-600 font-bold">Límite duro: 20 Clientes</span>
+                                                <span className="text-rose-600 font-bold">Máx 20 Clientes</span>
                                             )}
                                         </div>
                                     </td>
@@ -285,6 +334,57 @@ export default function SuperAdminPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Recargar Créditos */}
+            {rechargeModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 bg-amber-50">
+                            <h3 className="text-lg font-bold text-amber-900 flex items-center gap-2">
+                                <Sparkles className="w-5 h-5" /> Recargar Créditos IA
+                            </h3>
+                            <p className="text-sm text-amber-700 mt-1">Inyectar saldo a <strong>{rechargeModal.agencyName}</strong></p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Cantidad de Créditos</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[10, 50, 100].map(val => (
+                                        <button 
+                                            key={val}
+                                            onClick={() => setRechargeModal({ ...rechargeModal, amount: val })}
+                                            className={`py-2 rounded-xl text-sm font-bold border-2 transition-all ${rechargeModal.amount === val ? 'border-amber-500 bg-amber-50 text-amber-900' : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'}`}
+                                        >
+                                            +{val}
+                                        </button>
+                                    ))}
+                                </div>
+                                <input 
+                                    type="number" 
+                                    value={rechargeModal.amount}
+                                    onChange={(e) => setRechargeModal({ ...rechargeModal, amount: parseInt(e.target.value) || 0 })}
+                                    className="w-full mt-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none font-bold text-center text-2xl"
+                                />
+                            </div>
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setRechargeModal({ ...rechargeModal, isOpen: false })}
+                                    className="flex-1 py-3 text-slate-500 font-bold hover:text-slate-700 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={handleRecharge}
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar"}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

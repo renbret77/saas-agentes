@@ -1,0 +1,22 @@
+{
+  "name": "RB Proyectos - Money Machine",
+  "short_name": "RB Portal",
+  "description": "Portal de Inteligencia y Automatización para Agentes de Seguros.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

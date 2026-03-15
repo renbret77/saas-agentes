@@ -69,3 +69,34 @@ export async function generateSalesSnap(pdfContent: string): Promise<string> {
 
     return response.choices[0].message.content || "No se pudo generar el resumen.";
 }
+export async function analyzeCustomerIntent(text: string) {
+    const openai = getOpenAI();
+    const prompt = `
+    Analiza este mensaje de un cliente de una agencia de seguros e identifica su intención.
+    
+    Mensaje: "${text}"
+    
+    Intenciones soportadas:
+    1. "poliza": Quiere ver su póliza, descargarla o que se la envíen.
+    2. "debito": Pregunta cuándo tiene que pagar, cuánto debe o fechas de vencimiento.
+    3. "siniestro": Reporta un accidente, choque o pide números de emergencia.
+    4. "asistencia": Pide ayuda general o servicios adicionales.
+    5. "none": Charla informal u otras dudas.
+    
+    ESTRATEGIA PARA SINIESTROS:
+    Si el cliente reporta un siniestro, sé empático. Asegúrate de identificar que es una emergencia.
+    
+    Devuelve un JSON:
+    {
+        "intent": "poliza" | "debito" | "siniestro" | "asistencia" | "none"
+    }
+    `;
+
+    const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+    });
+
+    return JSON.parse(response.choices[0].message.content || '{"intent":"none"}');
+}

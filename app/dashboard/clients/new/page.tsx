@@ -8,6 +8,7 @@ import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import { supabase } from "@/lib/supabase"
 import { Database } from "@/types/database.types"
+import { checkQuota } from "@/lib/quotas"
 
 type ClientInsert = Database['public']['Tables']['clients']['Insert'] & {
     mobile_phone?: string | null
@@ -122,6 +123,14 @@ export default function NewClientPage() {
 
             if (!user) {
                 alert("Sesión expirada.")
+                return
+            }
+
+            // --- ANTI-AGANDALLE QUOTA CHECK (v84) ---
+            const quota = await checkQuota(user.id, 'max_clients')
+            if (!quota.allowed) {
+                alert(quota.message)
+                setLoading(false)
                 return
             }
 

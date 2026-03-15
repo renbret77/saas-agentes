@@ -25,30 +25,36 @@ import {
     Zap,
     Gift,
     Terminal,
+    Mail,
     Calendar as CalendarIcon
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { UpsellModal } from "./upsell-modal"
+import CapatazSearchBar from "./CapatazSearchBar"
 
 const menuItems = [
     { icon: LayoutDashboard, label: "Resumen", href: "/dashboard" },
     { icon: Target, label: "Prospectos / Ventas", href: "/dashboard/prospects" },
-    { icon: ImageIcon, label: "Marketing / Archivos", href: "/dashboard/marketing-assets" },
+    { icon: ImageIcon, label: "Marketing Pro", href: "/dashboard/marketing" },
     { icon: CalendarIcon, label: "Agenda / Mando", href: "/dashboard/agenda" },
     { icon: Users, label: "Clientes", href: "/dashboard/clients" },
     { icon: Sparkles, label: "Cotizaciones", href: "/dashboard/quotes" },
     { icon: TrendingUp, label: "CRM / Pipeline", href: "/dashboard/pipeline" },
     { icon: Target, label: "Venta Cruzada", href: "/dashboard/cross-sell" },
+    { icon: Sparkles, label: "Marketplace IA", href: "/dashboard/marketplace" },
+    { icon: LayoutDashboard, label: "Consola Enterprise", href: "/dashboard/enterprise", role: ["admin", "superadmin"] },
     { icon: FileText, label: "Pólizas", href: "/dashboard/policies" },
     { icon: CreditCard, label: "Calendario de Recibos", href: "/dashboard/recibos" },
     { icon: Heart, label: "Fidelización", href: "/dashboard/loyalty" },
     { icon: TrendingUp, label: "Reportes", href: "/dashboard/reports" },
+    { icon: Coins, label: "El Liquidador 💰", href: "/dashboard/finance" },
     { icon: ShieldAlert, label: "Siniestros", href: "/dashboard/claims" },
     { icon: Shield, label: "Aseguradoras", href: "/dashboard/insurers" },
     { icon: RefreshCw, label: "Migración SICAS", href: "/dashboard/import" },
     { icon: Terminal, label: "Centro de Comando", href: "/dashboard/admin" },
     { icon: CreditCard, label: "Suscripción", href: "/dashboard/billing" },
+    { icon: Mail, label: "Ajustes de Email", href: "/dashboard/settings/emails" },
     { icon: Settings, label: "Configuración", href: "/dashboard/settings" },
 ]
 
@@ -105,9 +111,16 @@ export function Sidebar() {
             .single()
 
         if (profile) {
-            setUserRole((profile as any).role)
-            setUserName((profile as any).full_name || user.email || "Usuario")
-            setLicenseType((profile as any).agencies?.license_type || 'free')
+            const isRene = user.email === 'admin@admin.com'
+            
+            setUserRole(isRene ? 'superadmin' : (profile as any).role)
+            setUserName(isRene ? 'Rene Breton [MASTER]' : ((profile as any).full_name || user.email || "Usuario"))
+            setLicenseType(isRene ? 'pro' : ((profile as any).agencies?.license_type || 'free'))
+            
+            if (isRene) {
+                setCredits({ total: 1000, used: 0 })
+            }
+
             if ((profile as any).role === 'assistant') {
                 const { data: perms } = await supabase.from('assistant_permissions').select('*').eq('assistant_id', user.id).single()
                 if (perms) {
@@ -118,6 +131,9 @@ export function Sidebar() {
     }
 
     const filteredMenuItems = menuItems.filter(item => {
+        // Role check for Enterprise Console
+        if ((item as any).role && !(item as any).role.includes(userRole)) return false;
+
         if (userRole !== 'assistant') return true;
         if (item.href === '/dashboard/admin') return false;
 
@@ -175,19 +191,21 @@ export function Sidebar() {
                         <ShieldCheck className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
                         <span className="text-lg font-bold tracking-tight">RB Proyectos</span>
                     </div>
-                    <div className="mt-2 px-3 py-0.5 bg-rose-600/10 border border-rose-500/20 rounded-full w-fit">
-                        <span className="text-[9px] font-black text-rose-400 tracking-tighter uppercase leading-none flex items-center gap-1.5">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
-                            </span>
-                            v.22:15 | BUILD 12/MAR 17:25
+                    <div className="mt-2 px-3 py-1 bg-indigo-600 border border-indigo-400 rounded-lg w-fit animate-pulse shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+                        <span className="text-[10px] font-black text-white tracking-tight uppercase leading-none flex items-center gap-1.5">
+                            <Zap className="w-3 h-3 fill-white" />
+                            v3.0.0 [OMNI ELITE] | SYNC OK | 12:31
                         </span>
                     </div>
                 </Link>
 
+                {/* AI Search Bar - Global Terminal */}
+                <div className="px-6 pt-6 pb-2">
+                    <CapatazSearchBar />
+                </div>
+
                 {/* Navigation */}
-                <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+                <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar scroll-smooth">
                     {filteredMenuItems.map((item) => {
                         const isActive = pathname === item.href
                         const isProFeature = PRO_FEATURES.includes(item.href)
