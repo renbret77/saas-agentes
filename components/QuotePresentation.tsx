@@ -212,7 +212,7 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
                         className="inline-flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-2xl rounded-full border border-white/20 shadow-2xl"
                     >
                         <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Omni Elite Proposal v3.1</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Omni Elite Proposal v3.11</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                     </motion.div>
 
@@ -622,7 +622,7 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
             <footer className="py-20 bg-slate-900 text-center px-6 border-t border-white/5 relative">
                 {/* Bottom Watermark */}
                 <div className="absolute bottom-4 right-4 opacity-30 pointer-events-none">
-                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">By Proyectos RB | v3.0.0 OMNI ELITE (12:31 PM)</p>
+                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">By Proyectos RB | v3.11 OMNI ELITE</p>
                 </div>
 
                 <div className="max-w-4xl mx-auto space-y-12">
@@ -643,7 +643,7 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
                         </div>
                         <div className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-full border border-white/10">
                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status: Propuesta Omni Elite Combo Activa v3.0</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status: Propuesta Omni Elite Combo Activa v3.11</p>
                         </div>
                     </div>
                 </div>
