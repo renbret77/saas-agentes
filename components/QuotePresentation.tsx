@@ -31,14 +31,21 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
     const totalPremiumFromPDF = parseFloat(quoteData.premium_total?.toString().replace(/,/g, '')) || 0
     
     // Identificar qué coberturas en el PDF son "Accesorias"
-    const detectedAccessories = quoteData.coverages?.filter((cov: any) => 
-        ACCESSORY_KEYWORDS.some(key => cov.name.toLowerCase().includes(key.toLowerCase()))
-    ) || []
+    // PRICE_SAFETY_FILTER: Ignoramos precios que parezcan Sumas Aseguradas (ej. > 40% del total)
+    const detectedAccessories = quoteData.coverages?.filter((cov: any) => {
+        const isAccessory = ACCESSORY_KEYWORDS.some(key => cov.name.toLowerCase().includes(key.toLowerCase()))
+        const price = parseFloat(cov.price?.toString() || "0")
+        const premium = totalPremiumFromPDF || 1
+        return isAccessory && price < (premium * 0.4) // Si es > 40%, probablemente es suma asegurada
+    }) || []
 
-    const accessoriesSum = detectedAccessories.reduce((acc: number, cov: any) => acc + (cov.price || 0), 0)
+    const accessoriesSum = detectedAccessories.reduce((acc: number, cov: any) => acc + (parseFloat(cov.price?.toString() || "0")), 0)
     
     // El precio base es Total - Accesorios
-    const basePrice = totalPremiumFromPDF - accessoriesSum
+    const basePrice = Math.max(0, totalPremiumFromPDF - accessoriesSum)
+    
+    // Tarifa Original (Simulada para mostrar el valor del descuento si no viene en el PDF)
+    const originalTariff = basePrice / 0.7 // Asumimos un 30% de descuento comercial "Elite"
     
     // El estado de selectedAddons inicial debe ser vacío si queremos el efecto "Upsell"
     // O podemos pre-seleccionar los detectados. Rene quiere el efecto de "armar", así que iniciamos vacío.
@@ -65,57 +72,100 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
     }
 
     const downloadPDF = async () => {
-        const { jsPDF } = await import('jspdf')
-        const doc = new jsPDF()
-        
-        doc.setFontSize(22)
-        doc.setTextColor(15, 23, 42) // Slate-900
-        doc.text("Propuesta Omni Elite Combo", 20, 25)
-        
-        doc.setFontSize(10)
-        doc.setTextColor(100, 116, 139) // Slate-500
-        doc.text(`Fecha: ${new Date().toLocaleDateString('es-MX')}`, 20, 35)
-        
-        doc.setFontSize(14)
-        doc.setTextColor(51, 65, 85) // Slate-700
-        doc.text(`${clientName},`, 20, 50)
-        doc.text(`Resumen de blindaje para ${vehicleName}:`, 20, 58)
-        
-        doc.setFontSize(12)
-        doc.text(`Inversión Base: $${basePrice.toLocaleString()} ${quoteData.currency}`, 20, 75)
-        
-        let y = 85
-        doc.text("Adicionales Seleccionados:", 20, y)
-        y += 10
-        
-        if (selectedAddons.length === 0) {
+        try {
+            const { jsPDF } = await import('jspdf')
+            const doc = new jsPDF()
+            
+            // Header con degradado simulado
+            doc.setFillColor(15, 23, 42) // Slate-900
+            doc.rect(0, 0, 210, 40, 'F')
+            
+            doc.setFontSize(24)
+            doc.setTextColor(255, 255, 255)
+            doc.text("OMNI ELITE PROPOSAL", 20, 25)
+            
             doc.setFontSize(10)
-            doc.text("- Ninguno (Cobertura Amplia Estándar)", 25, y)
-            y += 8
-        } else {
-            selectedAddons.forEach(id => {
-                const addon = template.optional_coverages?.find((a: any) => a.id === id)
-                if (addon) {
-                    doc.setFontSize(10)
-                    doc.text(`- ${addon.name}: +$${addon.price.toLocaleString()}`, 25, y)
-                    y += 8
-                }
+            doc.setTextColor(16, 185, 129) // Emerald-500
+            doc.text(`VERSION v3.11 | ${new Date().toLocaleDateString('es-MX')}`, 150, 25)
+            
+            doc.setFontSize(14)
+            doc.setTextColor(51, 65, 85) // Slate-700
+            doc.text(`Propuesta para: ${clientName}`, 20, 55)
+            doc.text(`Bien a proteger: ${vehicleName}`, 20, 63)
+            
+            // Sección Cobertura Básica
+            doc.setFillColor(248, 250, 252) // Slate-50
+            doc.rect(20, 75, 170, 70, 'F')
+            doc.setDrawColor(226, 232, 240)
+            doc.rect(20, 75, 170, 70)
+            
+            doc.setFontSize(12)
+            doc.setTextColor(15, 23, 42)
+            doc.text("INCLUIDO EN COBERTURA BÁSICA ELITE:", 30, 85)
+            
+            doc.setFontSize(10)
+            doc.setTextColor(100, 116, 139)
+            const baseItems = [
+                `• Daños Materiales: ${quoteData.deductible_dmg || '5%'}`,
+                `• Robo Total: ${quoteData.deductible_theft || '10%'}`,
+                `• Responsabilidad Civil: AMPARADO`,
+                `• Gastos Médicos Ocupantes: AMPARADO`,
+                "• Asistencia Vial Premium: INCLUIDO",
+                "• Gastos Legales y Defensa: INCLUIDO",
+                "• Muerte del Conductor: INCLUIDO"
+            ]
+            
+            baseItems.forEach((text, i) => {
+                doc.text(text, 35, 95 + (i * 7))
             })
+            
+            // Precios
+            let y = 160
+            doc.setFontSize(12)
+            doc.setTextColor(100, 116, 139)
+            doc.text(`Tarifa Original (Libro): $${originalTariff.toLocaleString()} ${quoteData.currency}`, 20, y)
+            y += 10
+            doc.setTextColor(16, 185, 129)
+            doc.text(`Descuento Omni Elite Aplicado: - $${(originalTariff - basePrice).toLocaleString()}`, 20, y)
+            y += 15
+            
+            doc.setFontSize(16)
+            doc.setTextColor(15, 23, 42)
+            doc.text(`INVERSIÓN BASE ELITE: $${basePrice.toLocaleString()} ${quoteData.currency}`, 20, y)
+            
+            if (selectedAddons.length > 0) {
+                y += 20
+                doc.setFontSize(12)
+                doc.text("COBERTURAS ACCESORIAS SELECCIONADAS:", 20, y)
+                y += 10
+                doc.setFontSize(10)
+                selectedAddons.forEach(id => {
+                    const addon = template.optional_coverages?.find((a: any) => a.id === id)
+                    if (addon) {
+                        doc.text(`+ ${addon.name}: $${addon.price.toLocaleString()}`, 30, y)
+                        y += 7
+                    }
+                })
+            }
+            
+            doc.setDrawColor(16, 185, 129)
+            doc.setLineWidth(1)
+            doc.line(20, 250, 190, 250)
+            
+            doc.setFontSize(22)
+            doc.setTextColor(16, 185, 129)
+            doc.text(`TOTAL FINAL: $${totalPrice.toLocaleString()} ${quoteData.currency}`, 20, 265)
+            
+            doc.setFontSize(8)
+            doc.setTextColor(148, 163, 184)
+            doc.text("Esta propuesta es una simulación basada en inteligencia artificial Omni Elite v3.11. Sujeta a validación final.", 20, 285)
+            doc.text("By Proyectos RB | Elite Partner", 150, 285)
+            
+            doc.save(`OmniElite_${clientName.replace(/\s+/g, '_')}.pdf`)
+        } catch (error) {
+            console.error("PDF Error:", error)
+            alert("Error al generar el PDF. Por favor intenta de nuevo.")
         }
-        
-        doc.setDrawColor(16, 185, 129) // Emerald-500
-        doc.setLineWidth(1)
-        doc.line(20, y + 10, 190, y + 10)
-        
-        doc.setFontSize(18)
-        doc.setTextColor(16, 185, 129) // Emerald-500
-        doc.text(`Inversión Total: $${totalPrice.toLocaleString()} ${quoteData.currency}`, 20, y + 25)
-        
-        doc.setFontSize(8)
-        doc.setTextColor(100, 116, 139)
-        doc.text("By Proyectos RB | v3.0.0 Omni Elite", 140, 280)
-        
-        doc.save(`Propuesta_OmniElite_${type}.pdf`)
     }
 
     const contactAgent = () => {
@@ -352,12 +402,49 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
                         </div>
                         <div className="p-8 bg-slate-900 rounded-[2.5rem] text-white flex flex-col items-center justify-center min-w-[280px] shadow-2xl relative overflow-hidden group">
                              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                             <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1 relative z-10">Inversión Omni Actualizada</p>
-                             <p className="text-5xl font-black tracking-tighter relative z-10">${totalPrice.toLocaleString()} <span className="text-sm font-bold opacity-50">{quoteData.currency}</span></p>
+                             <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1 relative z-10">Inversión Final Blindada</p>
+                             <div className="relative z-10 text-center">
+                                <p className="text-[10px] text-slate-500 line-through mb-1">Tarifa: ${originalTariff.toLocaleString()}</p>
+                                <p className="text-5xl font-black tracking-tighter">${totalPrice.toLocaleString()} <span className="text-sm font-bold opacity-50">{quoteData.currency}</span></p>
+                                <div className="mt-2 text-[9px] font-bold bg-emerald-500/10 text-emerald-400 py-1 px-3 rounded-full border border-emerald-500/20">
+                                    AHORRO OMNI: ${ (originalTariff - basePrice).toLocaleString() }
+                                </div>
+                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* NEW: COBERTURA BÁSICA BREAKDOWN */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                        <div className="lg:col-span-4 space-y-6">
+                            <div className="p-10 bg-slate-50 rounded-[3rem] border border-slate-200 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                    <ShieldCheck className="w-32 h-32" />
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">Tu Cobertura Básica <br/><span className="text-emerald-600">Incluye:</span></h3>
+                                <ul className="space-y-4">
+                                    {[
+                                        { label: "Daños Materiales", value: `Deducible ${quoteData.deductible_dmg || '5%'}` },
+                                        { label: "Robo Total", value: `Deducible ${quoteData.deductible_theft || '10%'}` },
+                                        { label: "Gastos Médicos", value: "Suma Protegida" },
+                                        { label: "Responsabilidad Civil", value: "3-4 Millones" },
+                                        { label: "Asistencia Vial", value: "Premium" },
+                                        { label: "Gastos Legales", value: "Amparado" },
+                                        { label: "Muerte al Conductor", value: "Incluido" }
+                                    ].map((item, i) => (
+                                        <li key={i} className="flex items-center justify-between text-xs border-b border-slate-200/50 pb-2">
+                                            <span className="font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+                                            <span className="font-black text-slate-900">{item.value}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="mt-8 pt-6 border-t border-slate-200 text-center">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Costo Base Elite</p>
+                                    <p className="text-3xl font-black text-slate-900">${basePrice.toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
                         {/* BASE COVERAGE CARD */}
                         <div className="p-1 group bg-slate-50 rounded-[3rem] border-2 border-slate-200 relative overflow-hidden transition-all">
                             <div className="absolute top-4 right-4 bg-emerald-500 text-white p-2 rounded-full shadow-lg z-10">
@@ -405,7 +492,8 @@ export default function QuotePresentation({ type, quoteData, agencyName = "Tu Ag
                         ))}
                     </div>
                 </div>
-            </section>
+            </div>
+        </section>
 
             {/* BENEFITS SECTION - WHY US? */}
             <section className="py-32 px-6 max-w-7xl mx-auto space-y-20">

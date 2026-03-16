@@ -27,24 +27,24 @@ export const INSURANCE_TEMPLATES = {
         optional_coverages: [
             { 
                 id: "pyme_contents", 
-                name: "Robo de Contenidos y Mercancías", 
+                name: "Robo de Inventarios y Caja", 
                 price: 2400, 
-                image: "/hero_pyme_business_safety_1773598757709.png",
-                description: "Protege contra robo asalto de tu inventario, maquinaria y mobiliario de oficina." 
+                image: "/hero_ferreteria_v1_hardware_store_1773122935179.png",
+                description: "Protege tu capital de trabajo. Cubrimos robo con violencia de mercancías, maquinaria y el dinero en tránsito o caja fuerte." 
             },
             { 
                 id: "pyme_glass", 
-                name: "Rotura de Cristales Premium", 
+                name: "Rotura de Cristales Entoldada", 
                 price: 850, 
-                image: "/hero_segupyme_modern.png",
-                description: "Cubre vitrinas, cristales templados y anuncios luminosos ante accidentes o vandalismo." 
+                image: "/hero_oficinas_v1_corporate_lobby_1773122961506.png",
+                description: "Blindaje para vitrinas, cristales templados y fachadas. Estarás cubierto ante vandalismo o accidentes operativos." 
             },
             { 
                 id: "pyme_legal_ext", 
-                name: "Defensa Legal Extendida", 
+                name: "Responsabilidad Civil Empresarial", 
                 price: 1200, 
-                image: "/hero_segupyme_office.png",
-                description: "Asistencia jurídica ilimitada para asuntos laborales y reclamaciones de clientes." 
+                image: "/hero_rc_contratista_construction_1773122261320.png",
+                description: "Soporte legal total ante reclamaciones de empleados o clientes. Cubrimos gastos de defensa y posibles indemnizaciones." 
             }
         ]
     },
@@ -70,24 +70,24 @@ export const INSURANCE_TEMPLATES = {
         optional_coverages: [
             { 
                 id: "gmm_maternity", 
-                name: "Ayuda por Maternidad Plus", 
+                name: "Maternidad Elite & Recién Nacido", 
                 price: 4500, 
                 image: "/hero_medical_elite_maverick_1773598742096.png",
-                description: "Fondo adicional para gastos de parto o cesárea y protección del recién nacido desde el día uno." 
+                description: "Protección total para el momento más importante. Incluye ayuda para parto o cesárea y cobertura automática para el bebé desde su primer segundo de vida." 
             },
             { 
                 id: "gmm_usa", 
-                name: "Emergencia en el Extranjero", 
+                name: "Emergencia en el Extranjero Premium", 
                 price: 3200, 
                 image: "/hero_viajero_v3_airplane_window_1773130000000_1773164469170.png",
-                description: "Te protege ante urgencias médicas ocurridas fuera de México con sumas aseguradas en dólares." 
+                description: "Viaja con paz mental. Cobertura de gastos médicos por accidente o enfermedad imprevista fuera del país, con sumas aseguradas en dólares y atención 24/7." 
             },
             { 
                 id: "gmm_dental", 
-                name: "Blindaje Dental y Visión", 
+                name: "Dental y Visión Integral", 
                 price: 1100, 
                 image: "/hero_oficinas_v2_meeting_room_1773122973913.png",
-                description: "Tratamientos dentales preventivos, correctivos y apoyo para lentes graduados." 
+                description: "Mantenimiento preventivo y correctivo dental, además de apoyo para lentes graduados. Un complemento esencial para tu salud total." 
             }
         ],
         faq: [
@@ -339,17 +339,24 @@ export const INSURANCE_TEMPLATES = {
         optional_coverages: [
             { 
                 id: "cargo_maneuver", 
-                name: "Maniobras de Carga y Descarga", 
+                name: "Maniobras de Carga/Descarga", 
                 price: 1560, 
                 image: "/hero_camiones_logistics_1773122245741.png",
-                description: "Cubre los daños accidentales que ocurran mientras se sube o baja la mercancía del transporte." 
+                description: "El riesgo no termina al llegar. Cubrimos daños accidentales durante las maniobras de carga y descarga de tu mercancía." 
             },
             { 
                 id: "cargo_stays", 
-                name: "Estadía y Bodegaje Temporal", 
+                name: "Estadía y Transbordo Seguro", 
                 price: 980, 
                 image: "/hero_mercancias_v2_port_1773130000004_1773164533578.png",
-                description: "Extiende la protección mientras la carga espera en puertos o bodegas de transbordo hasta por 15 días." 
+                description: "Protección extendida mientras tu carga espera en puertos o bodegas fiscales. Hasta 30 días de cobertura extra." 
+            },
+            { 
+                id: "cargo_theft_part", 
+                name: "Robo Parcial de Mercancía", 
+                price: 1800, 
+                image: "/hero_mercancias_v3_truck_night_1773130000005_1773164550808.png",
+                description: "Blindaje contra 'fugas' o robo hormiga durante el trayecto. Esencial para mercancías de alto valor o fácil reventa." 
             }
         ]
     },
@@ -399,31 +406,38 @@ export const INSURANCE_TEMPLATES = {
         optional_coverages: [
             { 
                 id: "agency_repair", 
-                name: "Reparación en Agencia", 
+                name: "Reparación en Agencia Plus", 
                 price: 1850, 
                 image: "/hero_talleres_v1_mechanic_1773130000008_1773164602198.png",
-                description: "Garantiza que tu auto sea reparado con piezas originales en la agencia de tu marca, manteniendo su valor." 
+                description: "Exclusivo para vehículos de modelo reciente. Garantiza que tu blindaje regrese a su estado original con piezas 100% nuevas y mano de obra certificada por la marca." 
             },
             { 
                 id: "parts_theft", 
-                name: "Robo de Autopartes", 
+                name: "Robo de Autopartes Elite", 
                 price: 1250, 
                 image: "/hero_talleres_v2_tools_detail_1773130000009_1773164616979.png",
-                description: "Cubre espejos, llantas, calaveras y estéreo contra robo parcial con 0% deducible y sin trámites lentos." 
+                description: "Protege espejos, calaveras, rines y equipo especial. No permitas que el vandalismo afecte tu bolsillo; nosotros reponemos tus piezas de inmediato." 
+            },
+            { 
+                id: "parts_theft_ext", 
+                name: "RC Complementaria Personas", 
+                price: 950, 
+                image: "/hero_auto_v2_luxury_drive_1773130000010_1773164635329.png",
+                description: "Aumenta tu capacidad de respuesta ante accidentes graves. Sumas aseguradas extendidas para proteger tu patrimonio y libertad legal." 
             },
             { 
                 id: "auto_sub", 
-                name: "Auto Sustituto Plus", 
-                price: 940, 
+                name: "Auto Sustituto de Lujo", 
+                price: 1400, 
                 image: "/hero_auto_insurance_1773122299042.png",
-                description: "No te quedes sin moverte. Te entregamos un auto compacto por hasta 15 días tras un siniestro o reparación larga." 
+                description: "Que nada detenga tu movilidad. Te entregamos un vehículo de gama similar mientras el tuyo está en reparación por siniestro o robo." 
             },
             { 
                 id: "tires_rims", 
                 name: "Llantas y Rines Premium", 
                 price: 1100, 
                 image: "/hero_rc_contratista_v3_machinery_1773130000015_1773164724099.png",
-                description: "Protección total contra baches y banquetazos que dañen tu suspensión, rines o neumáticos en cualquier ciudad." 
+                description: "Blindaje contra baches y banquetazos. Cubrimos la reparación o sustitución total de tus neumáticos y rines deportivos." 
             }
         ],
         faq: [

@@ -47,6 +47,8 @@ export const PROMPT_QUOTE_MASTER = `
    ]
  }
 
+ REGLA DE PRECIOS: Si la Suma Asegurada es igual o mayor a 50,000 y hay otra columna con un valor pequeño (ej. de 1 a 5000), el valor pequeño SIEMPRE es el "price". NUNCA metas la Suma Asegurada en el campo "price".
+
 Responde ÚNICAMENTE el objeto JSON. No incluyas markdown ni explicaciones fuera del JSON.`;
 
 export const PROMPT_KNOWLEDGE_FEED = `
