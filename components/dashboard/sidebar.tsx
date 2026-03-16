@@ -194,7 +194,7 @@ export function Sidebar() {
                     <div className="mt-2 px-3 py-1 bg-indigo-600 border border-indigo-400 rounded-lg w-fit animate-pulse shadow-[0_0_15px_rgba(79,70,229,0.3)]">
                         <span className="text-[10px] font-black text-white tracking-tight uppercase leading-none flex items-center gap-1.5">
                             <Zap className="w-3 h-3 fill-white" />
-                            v3.0.0 [OMNI ELITE] | SYNC OK | 12:31
+                            v3.1.0 [OMNI ELITE] | SYNC OK | 19:15
                         </span>
                     </div>
                 </Link>
