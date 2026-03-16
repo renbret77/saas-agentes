@@ -207,7 +207,7 @@ export default function QuotesPage() {
                             exit={{ opacity: 0, scale: 0.95 }}
                             className="space-y-12"
                         >
-                            v3.1.0 [OMNI ELITE] | SYNC OK | 19:15
+                            v3.11 [OMNI ELITE] | SYNC OK | 19:58
                             {/* MINI HEADER */}
                             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                                 <div className="space-y-4">
@@ -233,7 +233,7 @@ export default function QuotesPage() {
                                 </div>
                                 <div className="bg-emerald-50 px-6 py-3 rounded-2xl border border-emerald-100 flex items-center gap-3">
                                     <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Motor OMNI 3.1 Activo</span>
+                                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Motor OMNI 3.11 Activo</span>
                                 </div>
                             </div>
 

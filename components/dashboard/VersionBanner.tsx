@@ -4,7 +4,7 @@ import { Clock, Zap } from "lucide-react"
 
 export function VersionBanner() {
     const releaseDate = "15 Mar 2026 - 07:15 PM"
-    const version = "v3.1.0-OMNI-ELITE"
+    const version = "v3.11-OMNI-ELITE"
 
     return (
         <div className="bg-rose-600 text-white px-4 py-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] shadow-lg relative overflow-hidden">

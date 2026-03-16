@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { shareId } = await params
     return {
         title: `Cotización Omni Elite | ID: ${shareId.substring(0, 8)}`,
-        description: 'Análisis de Inteligencia OMNI 3.1 para tu Blindaje Patrimonial',
+        description: 'Análisis de Inteligencia OMNI 3.11 para tu Blindaje Patrimonial',
     }
 }
 
@@ -67,7 +67,7 @@ export default async function PublicQuotePage({ params }: Props) {
     return (
         <div className="min-h-screen bg-slate-900">
             {/* AUDIT LABEL (HIDDEN) */}
-            <div className="hidden" data-version="v3.1.0-SERVER-OMNI-ELITE" />
+            <div className="hidden" data-version="v3.11-SERVER-OMNI-ELITE" />
 
             <QuotePresentation
                 type={insuranceType}

@@ -4,7 +4,7 @@ import { VersionBanner } from "@/components/dashboard/VersionBanner"
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'v3.1.0 [OMNI ELITE] | Portal Proyectos',
+  title: 'v3.11 [OMNI ELITE] | Portal Proyectos',
   description: 'Sistema de Gestión Elite para Agentes de Clase Mundial',
 }
 
